@@ -508,48 +508,8 @@ class Main extends AbstractService {
         }
 
         $dockerData = new DockerData($volumes, null, ...(array) $recipe);
-        $dockerData->volumes = $volumes;
-        
-        // Add plugin data for dockerfile shallow cloning
-        if ($recipe->plugins) {
-            $pluginsForDocker = [];
-            foreach ($recipe->plugins as $plugin) {
-                $recipePlugin = $this->pluginsService->extractRepoInfoFromPlugin($plugin);
-                
-                // Only include GitHub repositories for cloning
-                if (strpos($recipePlugin->repo, 'https://github.com') === 0 || strpos($recipePlugin->repo, 'git@github.com') === 0) {
-                    // Find plugin info to get the Moodle path
-                    if ($this->pluginInfo && isset($this->pluginInfo->plugins)) {
-                        foreach ($this->pluginInfo->plugins as $pluginInfo) {
-                            if (is_string($pluginInfo->recipeSrc)) {
-                                if ($pluginInfo->recipeSrc !== $recipePlugin->repo) {
-                                    continue;
-                                }
-                                $repo = $pluginInfo->recipeSrc;
-                                $branch = 'main'; // Default branch if not specified
-                            } elseif (is_object($pluginInfo->recipeSrc)) {
-                                if ($pluginInfo->recipeSrc->repo !== $recipePlugin->repo) {
-                                    continue;
-                                }
-                                $repo = $pluginInfo->recipeSrc->repo;
-                                $branch = $pluginInfo->recipeSrc->branch;
-                            }
-
-                            $path = $pluginInfo->path;
-
-                            $pluginsForDocker[] = [
-                                'repo' => $repo,
-                                'branch' => $branch,
-                                'path' => $path
-                            ];
-                            break;
-                        }
-                    }
-                }
-            }
-            $dockerData->pluginsForDocker = $pluginsForDocker;
-        }
-        
+        $dockerData->volumes = $volumes;       
+            
         $this->dockerData = $dockerData;
 
         if ($recipe->updateHostHosts) {
@@ -677,6 +637,8 @@ class Main extends AbstractService {
         $dockerData->volumes = [];
         
         // Add plugin data for dockerfile shallow cloning (if not disabled)
+        // TODO - note that CI is going to require some way to clone these repos via ssh in some cases.
+        // We will need to add a SSH_KEY github env variable.
         if ($recipe->plugins && !$recipe->cloneRepoPlugins) {
             $pluginsForDocker = [];
             foreach ($recipe->plugins as $plugin) {

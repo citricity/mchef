@@ -4,10 +4,6 @@
   "phpVersion": "8.0",
   "plugins": [
     {
-      "repo": "https://github.com/marcusgreen/moodle-qtype_gapfill.git",
-      "branch": "main"
-    },
-    {
       "repo": "https://github.com/gthomas2/moodle-filter_imageopt",
       "branch": "master"
     },
@@ -22,6 +18,5 @@
   "updateHostHosts": true,
   "dbType": "pgsql",
   "dbHostPort": "55435",
-  "developer": true,
   "mountPlugins": true
 }

@@ -11,4 +11,5 @@ class StaticVars {
     static MChefCLI|MockObject $cli;
     static ?RegistryInstance $instance;
     static ?Recipe $recipe;
+    static ?bool $noCache;
 }
