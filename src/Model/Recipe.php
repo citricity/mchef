@@ -184,6 +184,11 @@ class Recipe extends AbstractModel {
          */
         public ?string $publishTagPrefix = null,
 
+        /**
+         * @var string - directory name for moodle source and plugins (default: 'moodle')
+         */
+        public ?string $moodleDirectory = 'moodle',
+
         // The following properties are set automatically on parse.
 
         public ?string $wwwRoot = null,

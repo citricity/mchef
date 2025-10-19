@@ -29,6 +29,8 @@ class MChefCLI extends CLI {
     public bool $verbose = false;
 
     public function __construct($autocatch = true) {
+        require_once(__DIR__ . '/lib.php');
+        
         // Suppress splitbrain deprecation warnings during construction
         SplitbrainWrapper::suppressDeprecationWarnings(function() use ($autocatch) {
             parent::__construct($autocatch);
@@ -55,14 +57,18 @@ class MChefCLI extends CLI {
     protected function setup(Options $options) {
         // Run dependency checks. If one of them fails, program will die()
         $this->depService = \App\Service\Dependencies::instance($this);
-        $this->depService->check();
-
+        $this->depService->check();        
         $options->setHelp('Facilitates the creation of moodle docker instances with custom configurations.');
+
+        // Register options for sub commands.
         $this->registerCommands($options);
+
+        // Register options for main mchef command
         $options->registerArgument('recipe', 'File location of recipe', false);
         $options->registerOption('start', 'Start all containers associated with this recipe', 's');
         $options->registerOption('installexec', 'Install executable version of mchef.php to users bin folder', 'i');
         $options->registerOption('version', 'Print version', 'v');
+        $options->registerOption('nocache', 'Disable caching when adding plugins and pulling docker images', null, false);
     }
 
     /**
@@ -199,6 +205,10 @@ class MChefCLI extends CLI {
     protected function main(Options $options) {
         $this->main = \App\Service\Main::instance($this);
 
+        if ($options->getOpt('nocache')) {
+            StaticVars::$noCache = true;
+        }
+
         if ($cmd = $options->getCmd()) {
             $this->welcomeLine();
             $class = 'App\\Command\\'.ucfirst($cmd);
@@ -277,8 +287,9 @@ class MChefCLI extends CLI {
         ?callable $onNo = null,
         string $default = 'n'
     ): mixed {
+        echo $msg;
         $suffix = $default === 'y' ? '[Y/n]' : '[y/N]';
-        $input = readline("$msg $suffix ");
+        $input = readline(" $suffix ");
         $input = trim($input);
 
         if ($input === '') {
