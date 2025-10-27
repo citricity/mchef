@@ -58,6 +58,9 @@ final class InstallToBin extends AbstractService {
             $userBinDir = getenv('HOME') . '/bin';
             if (in_array($userBinDir, $dirs)) {
                 $binDir = $userBinDir;
+                if (!file_exists($binDir)) {
+                    throw new Exception('Your ~/bin directory does not exist. Please create it first before installing mchef there.');
+                }
             } else if (in_array('/usr/local/bin', $dirs)) {
                 $binDir = '/usr/local/bin';
             } else {
