@@ -3,6 +3,8 @@
 namespace App\Service;
 
 use App\PDO\Postgres;
+use App\PDO\Mysql;
+use App\PDO\Mariadb;
 use App\StaticVars;
 use PDO;
 use App\Enums\DatabaseType;
@@ -20,9 +22,12 @@ class Database extends AbstractService {
 
         if ($dbType === DatabaseType::Postgres->value) {
             self::$pdoref = new Postgres();
-        } else if ($dbType === DatabaseType::Mysql) {
-            // TODO
-            throw new \Exception('Not implemented yet '.$dbType);
+        } else if ($dbType === DatabaseType::Mysql->value) {
+            self::$pdoref = new Mysql();
+        } else if ($dbType === DatabaseType::Mariadb->value) {
+            self::$pdoref = new Mariadb();
+        } else {
+            throw new \Exception('Unsupported dbType '.$dbType);
         }
     }
 
