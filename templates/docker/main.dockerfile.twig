@@ -28,9 +28,7 @@ RUN apt update && apt install --no-install-recommends -y vim iputils-ping
 
 {% if (dbType ?? 'pgsql') == 'pgsql' %}
 RUN apt update && apt install --no-install-recommends -y postgresql-client
-{% elseif dbType == 'mysql' %}
-RUN apt update && apt install --no-install-recommends -y mysql-client
-{% elseif dbType == 'mariadb' %}
+{% elseif dbType == 'mysql' or dbType == 'mariadb' %}
 RUN apt update && apt install --no-install-recommends -y mariadb-client
 {% endif %}
 

@@ -202,8 +202,60 @@ class Main extends AbstractService {
         }
     }
 
-    private function runSQLQuery(Recipe $recipe) {
+    private function buildDBQueryDockerCommand(Recipe $recipe, string $query, bool $isCheck = false): string {
+        $dbCommand = 'docker exec ';
+        $dbContainer = $this->getDockerDatabaseContainerName();
 
+        if (OS::isWindows()) {
+            // For Windows, `cmd` is used with `/c` to execute the command
+            $dbCommand .= escapeshellarg($dbContainer) . ' cmd /c ';
+        } else {
+            // For Linux, use `sh` as the shell
+            $dbCommand .= escapeshellarg($dbContainer) . ' sh -c ';
+        }
+
+        // Set the db check command based on db type.
+        switch ($recipe->dbType) {
+            case 'mysql':
+            case 'mariadb':
+                $dbCommand .= escapeshellarg('mysql -u' . $recipe->dbUser . ' -p' . $recipe->dbPassword . ' -D ' . $recipe->dbName  . ' -e "' . $query . '" > /dev/null 2>&1');
+                break;
+            case 'pgsql':
+            default:
+                $dbCommand .= escapeshellarg('psql -U ' . $recipe->dbUser . ' -d ' . $recipe->dbName . ' -c "' . $query . '" > /dev/null 2>&1');
+        }
+
+        if ($isCheck) {
+            $dbCommand .= ' || exit 1';
+        }
+
+        return $dbCommand;
+    }
+
+    private function dropAllTables(Recipe $recipe): void {
+        $dbContainer = $this->getDockerDatabaseContainerName();
+        $this->cli->notice('Dropping all tables in database '.$recipe->dbName);
+
+        // Drop all DB Tables depending on db type.
+        switch ($recipe->dbType) {
+            case 'mysql':
+            case 'mariadb':
+                $dbdeletecmd = 'docker exec ' . $dbContainer . ' mysql -u' . $recipe->dbUser . ' -p' . $recipe->dbPassword . ' -D ' . $recipe->dbName .
+                    ' -e "SET FOREIGN_KEY_CHECKS = 0; SET GROUP_CONCAT_MAX_LEN=32768; SET @tables = NULL; SELECT GROUP_CONCAT(\'`\', table_name, \'`\') INTO @tables FROM information_schema.tables WHERE table_schema = \'' . $recipe->dbName . '\'; SET @tables = CONCAT(\'DROP TABLE IF EXISTS \', @tables); PREPARE stmt FROM @tables; EXECUTE stmt; DEALLOCATE PREPARE stmt; SET FOREIGN_KEY_CHECKS = 1;"';
+                break;
+            case 'pgsql':
+            default:
+                $dbdeletecmd = 'docker exec ' . $dbContainer . ' psql -U ' . $recipe->dbUser . ' -d ' . $recipe->dbName .
+                    ' -c "DO \$\$ DECLARE row RECORD; BEGIN FOR row IN (SELECT tablename FROM pg_tables WHERE schemaname = \'public\') LOOP EXECUTE \'DROP TABLE IF EXISTS public.\' || quote_ident(row.tablename); END LOOP; END \$\$;"';
+        }
+
+        exec($dbdeletecmd, $outpup, $return);
+
+        if ($return !== 0) {
+            throw new Exception('Failed to drop all tables in database '.$recipe->dbName);
+        }
+
+        $this->cli->success('All tables dropped successfully from database '.$recipe->dbName);
     }
 
     private function configureDockerNetwork(Recipe $recipe): void {
@@ -242,21 +294,7 @@ class Main extends AbstractService {
             $this->cli->notice('Try installing MoodleDB');
 
             $dbnotready = true;
-            $dbQueryBase = 'docker exec ';
-
-            // Set the db check command based on db type.
-            switch ($recipe->dbType) {
-                case 'mysql':
-                case 'mariadb':
-                    $dbQueryBase .= escapeshellarg($dbContainer) . ' sh -c ' . escapeshellarg('mysql -u' . $recipe->dbUser . ' -p' . $recipe->dbPassword . '-D ' . $recipe->dbName  . ' -e "SELECT 1" > /dev/null 2>&1');
-                    break;
-                case 'pgsql':
-                default:
-                    $dbQueryBase .= escapeshellarg($dbContainer) . ' sh -c ' . escapeshellarg('psql -U ' . $recipe->dbUser . ' -d ' . $recipe->dbName . ' -c "SELECT 1" > /dev/null 2>&1');
-            }
-
-            $dbCheckCmd
-
+            $dbCheckCmd = $this->buildDBQueryDockerCommand($recipe, 'SELECT 1');
             while ($dbnotready) {
                 exec($dbCheckCmd, $output, $returnVar);
                 if ($returnVar === 0) {
@@ -267,15 +305,7 @@ class Main extends AbstractService {
             }
             $this->cli->notice('DB '.$dbContainer.' ready!');
 
-            $dockerDbExecBase = 'docker exec ' . escapeshellarg($dbContainer);
-
-            if (OS::isWindows()) {
-                // For Windows, `cmd` is used with `/c` to execute the command
-                $dbSchemaInstalledCmd = $dockerDbExecBase . ' cmd /c "psql -U ' . $recipe->dbUser . ' -d ' . $recipe->dbName . ' -c \\"SELECT * FROM mdl_course\\" > nul 2>&1 || exit 1"';
-            } else {
-                // For Linux, use `sh` as the shell
-                $dbSchemaInstalledCmd = $dockerDbExecBase . ' sh -c "psql -U ' . $recipe->dbUser . ' -d ' . $recipe->dbName . ' -c \\"SELECT * FROM mdl_course\\" > /dev/null 2>&1 || exit 1"';
-            }
+            $dbSchemaInstalledCmd = $this->buildDBQueryDockerCommand($recipe, 'SELECT * FROM mdl_course');
 
             // Execute the command
             exec($dbSchemaInstalledCmd, $output, $returnVar);
@@ -309,14 +339,9 @@ class Main extends AbstractService {
                     if (strtolower(trim($overwrite)) === 'yes') {
                         $this->cli->notice('Overwriting the existing Moodle database...');
                         // Drop all DB Tables in public
-                        $dbdeletecmd = 'docker exec ' . $dbContainer . ' psql -U ' . $recipe->dbUser . ' -d ' . $recipe->dbName .
-                            ' -c "DO \$\$ DECLARE row RECORD; BEGIN FOR row IN (SELECT tablename FROM pg_tables WHERE schemaname = \'public\') LOOP EXECUTE \'DROP TABLE IF EXISTS public.\' || quote_ident(row.tablename); END LOOP; END \$\$;"';
-
-                        exec($dbdeletecmd, $outpup, $return);
-
+                        $this->dropAllTables($recipe);
                         // Do the installation again, should work now
                         $this->execPassthru($cmdinstall);
-
                     } else {
                         $this->cli->notice('Skipping Moodle database installation.');
                     }
@@ -327,7 +352,7 @@ class Main extends AbstractService {
     }
 
     private function checkPortBinding(Recipe $recipe): bool {
-      return $this->dockerService->checkPortAvailable($this->getHostPort($recipe));
+        return $this->dockerService->checkPortAvailable($this->getHostPort($recipe));
     }
 
     public function hostPath() : string {

@@ -103,6 +103,7 @@ class Database extends AbstractCommand {
         return match ($this->recipe->dbType) {
             'pgsql' => new Postgres($this->recipe, $this->cli),
             'mysql' => new Mysql($this->recipe, $this->cli),
+            'mariadb' => new Mysql($this->recipe, $this->cli),
             default => throw new \InvalidArgumentException(
                 "Unsupported database type {$this->recipe->dbType}"
             ),
