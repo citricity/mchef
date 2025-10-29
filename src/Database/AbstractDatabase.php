@@ -13,11 +13,15 @@ abstract class AbstractDatabase implements DatabaseInterface {
         return ($this->recipe->containerPrefix ?? 'mc').'-moodle';
     }
 
-    public function wipe(): void {
+    public function dropAllTables(): void {
         throw new NotImplementedException(__METHOD__);
     }
 
     public function dbeaverConnectionString(): string {
+        throw new NotImplementedException(__METHOD__);
+    }
+
+    public function buildDBQueryDockerCommand(string $query, bool $isCheck = false): string {
         throw new NotImplementedException(__METHOD__);
     }
 }

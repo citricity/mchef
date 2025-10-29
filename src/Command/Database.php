@@ -5,6 +5,7 @@ namespace App\Command;
 use App\Database\DatabaseInterface;
 use App\Database\Mysql;
 use App\Database\Postgres;
+use App\Database\Mariadb;
 use App\Model\Recipe;
 use App\Model\RegistryInstance;
 use App\StaticVars;
@@ -20,7 +21,7 @@ class Database extends AbstractCommand {
     // Other properties.
     private RegistryInstance $instance;
     private Recipe $recipe;
-    private Mysql | Postgres $database;
+    private Mysql | Postgres | Mariadb $database;
 
     // Constants.
     const COMMAND_NAME = 'database';
@@ -35,14 +36,14 @@ class Database extends AbstractCommand {
 
     private function wipeDatabase() {
         $this->cli->promptYesNo("ADVICE: TAKE A BACKUP FIRST!\n".
-            "Are you sure you want to wipe your db?",
+            "Are you sure you want to drop all tables from your db?",
             function() {
                 try {
-                    $this->database->wipe();
+                    $this->database->dropAllTables();
                 } catch (\Throwable $e) {
-                    throw new \RuntimeException('Failed to wipe database', previous: $e);
+                    throw new \RuntimeException('Failed to drop all tables from database', previous: $e);
                 }
-                $this->cli->success('All tables should be wiped from database');
+                $this->cli->success('All tables should be dropped from database');
             }
         );
     }
@@ -103,7 +104,7 @@ class Database extends AbstractCommand {
         return match ($this->recipe->dbType) {
             'pgsql' => new Postgres($this->recipe, $this->cli),
             'mysql' => new Mysql($this->recipe, $this->cli),
-            'mariadb' => new Mysql($this->recipe, $this->cli),
+            'mariadb' => new Mariadb($this->recipe, $this->cli),
             default => throw new \InvalidArgumentException(
                 "Unsupported database type {$this->recipe->dbType}"
             ),
