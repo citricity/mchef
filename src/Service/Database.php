@@ -3,13 +3,21 @@
 namespace App\Service;
 
 use App\PDO\Postgres;
+use App\PDO\Mysql;
+use App\PDO\Mariadb;
 use App\StaticVars;
 use PDO;
 use App\Enums\DatabaseType;
+use App\Database\Mysql as MysqlDB;
+use App\Database\Postgres as PostgresDB;
+use App\Database\Mariadb as MariadbDB;
+
 
 class Database extends AbstractService {
 
     protected static PDO $pdoref;
+
+    private static MysqlDB | PostgresDB | MariadbDB $dbref;
 
     protected function __construct() {
         $recipe = StaticVars::$recipe;
@@ -20,9 +28,13 @@ class Database extends AbstractService {
 
         if ($dbType === DatabaseType::Postgres->value) {
             self::$pdoref = new Postgres();
-        } else if ($dbType === DatabaseType::Mysql) {
-            // TODO
-            throw new \Exception('Not implemented yet '.$dbType);
+            self::$dbref = new \App\Database\Postgres();
+        } else if ($dbType === DatabaseType::Mysql->value) {
+            self::$pdoref = new Mysql();
+        } else if ($dbType === DatabaseType::Mariadb->value) {
+            self::$pdoref = new Mariadb();
+        } else {
+            throw new \Exception('Unsupported dbType '.$dbType);
         }
     }
 
@@ -47,5 +59,10 @@ class Database extends AbstractService {
             throw new \Exception('Database query failed ' . $query . ' ' . var_export($args, true));
         }
         return $statement;
+    }
+
+    public static function getDatabase(): MysqlDB | PostgresDB | MariadbDB {
+        self::instance();
+        return self::$dbref;
     }
 }

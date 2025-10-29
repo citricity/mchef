@@ -23,7 +23,7 @@ services:
       DB_USER: *db-user
       DB_PASS: *db-pass
       DB_NAME: *db-name
-      DB_TYPE: {{ dbType ?? 'pgsql' }}
+      DB_TYPE: {{ dbType == 'mysql' ? 'mysqli' : dbType == 'mariadb' ? 'mariadb' : 'pgsql' }}
       DB_HOST: *db-container-name
     ports:
       - {{hostPort}}:{{port}}
@@ -68,6 +68,29 @@ services:
       MYSQL_ROOT_PASSWORD: *db-pass
       MYSQL_PASSWORD: *db-pass
       MYSQL_DATABASE: *db-name
+{% if (dbHostPort) %}
+    ports:
+      - {{dbHostPort}}:3306/tcp
+{% endif %}
+
+{% elseif dbType == 'mariadb' %}
+    image: mariadb:{{ dbVersion ?? '10.6.7' }}
+    command: >
+              --character-set-server=utf8mb4
+              --collation-server=utf8mb4_bin
+              --innodb_file_per_table=On
+              --wait-timeout=28800
+              --skip-log-bin
+    environment:
+      MYSQL_USER: *db-user
+      MYSQL_ROOT_PASSWORD: *db-pass
+      MYSQL_PASSWORD: *db-pass
+      MYSQL_DATABASE: *db-name
+{% if (dbHostPort) %}
+    ports:
+      - {{dbHostPort}}:3306/tcp
+{% endif %}
+
 {% endif %}
 
 volumes:
