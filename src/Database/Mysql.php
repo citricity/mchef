@@ -17,10 +17,33 @@ class Mysql extends AbstractDatabase implements DatabaseInterface {
         $dbUser        = $recipe->dbUser;
         $dbName        = $this->getDbName(); // single source of truth
         $dbPassword    = $recipe->dbPassword;
-        $dbdeletecmd   = 'mysql -u' . $recipe->dbUser . ' -p' . $recipe->dbPassword . ' -D ' . $recipe->dbName .
-                ' -e "SET FOREIGN_KEY_CHECKS = 0; SET GROUP_CONCAT_MAX_LEN=32768; SET @tables = NULL; SELECT GROUP_CONCAT(\'`\', table_name, \'`\') INTO @tables FROM information_schema.tables WHERE table_schema = \'' . $recipe->dbName . '\'; SET @tables = CONCAT(\'DROP TABLE IF EXISTS \', @tables); PREPARE stmt FROM @tables; EXECUTE stmt; DEALLOCATE PREPARE stmt; SET FOREIGN_KEY_CHECKS = 1;"';
+        
+        // Build the SQL query - use double quotes for GROUP_CONCAT delimiter to avoid shell interpretation
+        $sqlQuery = 'SET FOREIGN_KEY_CHECKS = 0; '
+            . 'SET GROUP_CONCAT_MAX_LEN=32768; '
+            . 'SET @tables = NULL; '
+            . 'SELECT GROUP_CONCAT(CONCAT("`", table_name, "`")) INTO @tables FROM information_schema.tables WHERE table_schema = ' . escapeshellarg($dbName) . '; '
+            . 'SET @tables = CONCAT("DROP TABLE IF EXISTS ", @tables); '
+            . 'PREPARE stmt FROM @tables; '
+            . 'EXECUTE stmt; '
+            . 'DEALLOCATE PREPARE stmt; '
+            . 'SET FOREIGN_KEY_CHECKS = 1;';
+        
+        // Build the mysql command properly escaped for shell execution
+        // Use the same pattern as buildDBQueryDockerCommand
+        $dbdeletecmd = 'mysql -u' . escapeshellarg($dbUser) 
+            . ' -p' . escapeshellarg($dbPassword) 
+            . ' -D ' . escapeshellarg($dbName) 
+            . ' -e ' . escapeshellarg($sqlQuery);
         try {
-            $dockerService->execute($dbContainer, $dbdeletecmd);
+            $this->cli->info("Dropping all tables from database $dbName");
+            $this->cli->info("Command: $dbdeletecmd");
+            // Use sh -c to properly execute the command in the container
+            if (OS::isWindows()) {
+                $dockerService->execute($dbContainer, 'cmd /c ' . escapeshellarg($dbdeletecmd));
+            } else {
+                $dockerService->execute($dbContainer, 'sh -c ' . escapeshellarg($dbdeletecmd));
+            }
             return;
         } catch (ExecFailed $e) {
             throw new \RuntimeException('Failed to wipe database', 0, $e);
