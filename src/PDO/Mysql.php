@@ -3,22 +3,22 @@
 namespace App\PDO;
 
 use App\Service\Main;
-use App\Traits\WithRecipe;
+use App\StaticVars;
 
 use PDO;
 
 class Mysql extends PDO {
-    use WithRecipe;
+
     public function __construct($options = null) {
-        $recipe = $this->getParsedRecipe();
+        $recipe = StaticVars::$recipe;
         if ($recipe->dbType !== 'mysql') {
             throw new \Exception('Database type is not mysql!');
         }
 
-        $mainService = Main::instance();
-        $dbContainer = $mainService->getDockerDatabaseContainerName();
+        $host = 'localhost';
+        $port = $recipe->dbHostPort ?? 3306;
 
-        parent::__construct("mysql:host=$dbContainer;port=3306;dbname=$recipe->dbName",
+        parent::__construct("mysql:host=$host;port=$port;dbname=$recipe->dbName",
             $recipe->dbUser,
             $recipe->dbPassword, $options);
     }

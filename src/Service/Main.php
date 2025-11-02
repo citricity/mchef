@@ -252,7 +252,7 @@ class Main extends AbstractService {
             }
             $this->cli->notice('DB '.$dbContainer.' ready!');
 
-            $dbSchemaInstalledCmd = $database->buildDBQueryDockerCommand('SELECT * FROM mdl_course');
+            $dbSchemaInstalledCmd = $database->buildDBQueryDockerCommand('SELECT * FROM mdl_course', true);
 
             // Execute the command
             exec($dbSchemaInstalledCmd, $output, $returnVar);

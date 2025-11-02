@@ -34,7 +34,7 @@ class Database extends AbstractCommand {
         $this->cli->notice('TODO: Exec onto database...');
     }
 
-    private function wipeDatabase() {
+    private function dropTables() {
         $this->cli->promptYesNo("ADVICE: TAKE A BACKUP FIRST!\n".
             "Are you sure you want to drop all tables from your db?",
             function() {
@@ -118,8 +118,8 @@ class Database extends AbstractCommand {
         $this->recipe = $this->mainService->getRecipe($this->instance->recipePath);
         $this->database = $this->resolveDatabase();
 
-        if (!empty($options->getOpt('wipe'))) {
-            $this->wipeDatabase();
+        if (!empty($options->getOpt('droptables'))) {
+            $this->dropTables();
             return;
         }
         if (!empty($options->getOpt('exec'))) {
@@ -172,7 +172,7 @@ class Database extends AbstractCommand {
    protected function register(Options $options): void {
         $options->registerCommand(self::COMMAND_NAME, 'Database utilities');
         $options->registerOption('exec', 'Exec onto database', 'e', false, self::COMMAND_NAME);
-        $options->registerOption('wipe', 'Wipe database', 'w', false, self::COMMAND_NAME);
+        $options->registerOption('droptables', 'Drop all tables from database', 'd', false, self::COMMAND_NAME);
         $options->registerOption('info', 'Get db connection info', 'i', false, self::COMMAND_NAME);
         $options->registerOption('client', 'Specify database client (dbeaver, pgadmin, mysql workbench, psql (cli), mysql (cli))', 'c', false, self::COMMAND_NAME);
     }
