@@ -17,7 +17,7 @@ class Mysql extends AbstractDatabase implements DatabaseInterface {
         $dbUser        = $recipe->dbUser;
         $dbName        = $this->getDbName(); // single source of truth
         $dbPassword    = $recipe->dbPassword;
-        
+
         // Build the SQL query - use double quotes for GROUP_CONCAT delimiter to avoid shell interpretation
         $sqlQuery = 'SET FOREIGN_KEY_CHECKS = 0; '
             . 'SET GROUP_CONCAT_MAX_LEN=32768; '
@@ -28,25 +28,20 @@ class Mysql extends AbstractDatabase implements DatabaseInterface {
             . 'EXECUTE stmt; '
             . 'DEALLOCATE PREPARE stmt; '
             . 'SET FOREIGN_KEY_CHECKS = 1;';
-        
+
         // Build the mysql command properly escaped for shell execution
         // Use the same pattern as buildDBQueryDockerCommand
-        $dbdeletecmd = 'mysql -u' . escapeshellarg($dbUser) 
-            . ' -p' . escapeshellarg($dbPassword) 
-            . ' -D ' . escapeshellarg($dbName) 
+        $dbdeletecmd = 'mysql -u' . escapeshellarg($dbUser)
+            . ' -p' . escapeshellarg($dbPassword)
+            . ' -D ' . escapeshellarg($dbName)
             . ' -e ' . escapeshellarg($sqlQuery);
         try {
             $this->cli->info("Dropping all tables from database $dbName");
             $this->cli->info("Command: $dbdeletecmd");
-            // Use sh -c to properly execute the command in the container
-            if (OS::isWindows()) {
-                $dockerService->execute($dbContainer, 'cmd /c ' . escapeshellarg($dbdeletecmd));
-            } else {
-                $dockerService->execute($dbContainer, 'sh -c ' . escapeshellarg($dbdeletecmd));
-            }
+            $dockerService->execute($dbContainer, $this->buildEscapedDockerCommand($dbdeletecmd));
             return;
         } catch (ExecFailed $e) {
-            throw new \RuntimeException('Failed to wipe database', 0, $e);
+            throw new \RuntimeException('Failed to drop all tables', 0, $e);
         }
     }
 
@@ -119,15 +114,8 @@ class Mysql extends AbstractDatabase implements DatabaseInterface {
         $mainService   = Main::instance($this->cli);
         $dbContainer   = $mainService->getDockerDatabaseContainerName();
         $recipe        = $this->recipe;
-        $dbCommand     = 'docker exec ';
-        if (OS::isWindows()) {
-            // For Windows, `cmd` is used with `/c` to execute the command
-            $dbCommand .= escapeshellarg($dbContainer) . ' cmd /c ';
-        } else {
-            // For Linux, use `sh` as the shell
-            $dbCommand .= escapeshellarg($dbContainer) . ' sh -c ';
-        }
-        $dbCommand .= escapeshellarg('mysql -u' . $recipe->dbUser . ' -p' . $recipe->dbPassword . ' -D ' . $recipe->dbName  . ' -e "' . $query . '" > /dev/null 2>&1');
+        $mysqlCommand  = escapeshellarg('mysql -u' . $recipe->dbUser . ' -p' . $recipe->dbPassword . ' -D ' . $recipe->dbName  . ' -e "' . $query . '" > /dev/null 2>&1');
+        $dbCommand     = $this->buildExecDockerCommand($dbContainer, $mysqlCommand);
 
         if ($isCheck) {
             $dbCommand .= ' || exit 1';
