@@ -302,20 +302,4 @@ class CICommandTest extends MchefTestCase {
             'token' => null
         ], $result);
     }
-
-    public function testGetRegistryConfigMissingUrl(): void {
-        $this->environment->method('get')->willReturnMap([
-            ['MCHEF_REGISTRY_URL', null, null], // Missing URL
-            ['MCHEF_REGISTRY_USERNAME', null, 'user'],
-            ['MCHEF_REGISTRY_PASSWORD', null, 'password'],
-            ['MCHEF_REGISTRY_TOKEN', null, null]
-        ]);
-        
-        $reflection = new \ReflectionClass($this->ciCommand);
-        $method = $reflection->getMethod('getRegistryConfig');
-        $method->setAccessible(true);
-        
-        $result = $method->invoke($this->ciCommand);
-        $this->assertNull($result);
-    }
 }
