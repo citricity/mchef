@@ -106,12 +106,7 @@ class CICommandTest extends MchefTestCase {
             ->with($mockRecipe, 'example:v1.5.0');
         
         // Mock environment variables (none set) 
-        $this->environment->method('get')->willReturnMap([
-            ['MCHEF_REGISTRY_URL', null, null],
-            ['MCHEF_REGISTRY_USERNAME', null, null],
-            ['MCHEF_REGISTRY_PASSWORD', null, null],
-            ['MCHEF_REGISTRY_TOKEN', null, null]
-        ]);
+        $this->environment->method('getRegistryConfig')->willReturn(null);
         
         // Expect warning about missing registry config
         $this->cli->expects($this->once())
@@ -146,11 +141,11 @@ class CICommandTest extends MchefTestCase {
             ->with($mockRecipe, 'my-custom-app:v1.5.0');
         
         // Mock environment variables (all set)
-        $this->environment->method('get')->willReturnMap([
-            ['MCHEF_REGISTRY_URL', null, 'https://registry.example.com'],
-            ['MCHEF_REGISTRY_USERNAME', null, 'testuser'],
-            ['MCHEF_REGISTRY_PASSWORD', null, 'testpass'],
-            ['MCHEF_REGISTRY_TOKEN', null, null]
+        $this->environment->method('getRegistryConfig')->willReturnMap([
+            'url' => 'https://registry.example.com',
+            'username' => 'testuser',
+            'password' => 'testpass',
+            'token' => null
         ]);
         
         // Mock Docker registry operations
