@@ -76,4 +76,32 @@ class EnvironmentTest extends MchefTestCase {
         putenv('TEST_VAR1');
         putenv('TEST_VAR2');
     }
+
+    public function testGetRegistryConfig(): void {
+        putenv('MCHEF_REGISTRY_URL=testurl');
+        putenv('MCHEF_REGISTRY_USERNAME=testusername');
+        putenv('MCHEF_REGISTRY_PASSWORD=testpassword');
+        putenv('MCHEF_REGISTRY_TOKEN=testtoken');
+
+        $result = $this->environment->getRegistryConfig();
+
+        $this->assertEquals([
+            'url' => 'testurl',
+            'username' => 'testusername',
+            'password' => 'testpassword',
+            'token' => 'testtoken',
+        ], $result);
+        
+        // Clean up
+        putenv('MCHEF_REGISTRY_URL');
+        putenv('MCHEF_REGISTRY_USERNAME');
+        putenv('MCHEF_REGISTRY_PASSWORD');
+        putenv('MCHEF_REGISTRY_TOKEN');
+    }
+
+    public function testGetRegistryConfigMissing(): void {
+        $result = $this->environment->getRegistryConfig();
+
+        $this->assertNull($result);
+    }
 }
