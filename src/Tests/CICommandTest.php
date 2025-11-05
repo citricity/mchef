@@ -141,7 +141,7 @@ class CICommandTest extends MchefTestCase {
             ->with($mockRecipe, 'my-custom-app:v1.5.0');
         
         // Mock environment variables (all set)
-        $this->environment->method('getRegistryConfig')->willReturnMap([
+        $this->environment->method('getRegistryConfig')->willReturn([
             'url' => 'https://registry.example.com',
             'username' => 'testuser',
             'password' => 'testpass',
