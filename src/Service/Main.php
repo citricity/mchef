@@ -26,6 +26,7 @@ class Main extends AbstractService {
     private RecipeService $recipeService;
     private ProxyService $proxyService;
     private Database $databaseService;
+    private Environment $environmentService;
 
     // Models
     private Recipe $recipe;
@@ -396,6 +397,68 @@ class Main extends AbstractService {
             mkdir($assetsPath, 0755, true);
         }
 
+        $this->processConfigFile($recipe);
+
+        if ($recipe->includeXdebug || $recipe->developer) {
+            try {
+                $xdebugContents = $this->twig->render('@docker/install-xdebug.sh.twig', ['mode' => $recipe->xdebugMode ?? 'debug']);
+            } catch (\Exception $e) {
+                throw new Exception('Failed to parse install-xdebug.sh template: '.$e->getMessage());
+            }
+        }
+        $scriptsAssetsPath = $assetsPath.'/scripts';
+        if (!file_exists($scriptsAssetsPath)) {
+            mkdir($scriptsAssetsPath, 0755, true);
+        }
+        file_put_contents($scriptsAssetsPath.'/install-xdebug.sh', $xdebugContents);
+
+    }
+
+    private function processConfigFile(Recipe $recipe): void {
+        if (!empty($recipe->configFile)) {
+            if (!file_exists($recipe->configFile)) {
+                throw new Exception('Config file does not exist: ' . $recipe->configFile);
+            }
+            $registryConfig = $this->environmentService->getRegistryConfig();
+            if (empty($recipe->mountPlugins) || empty($registryConfig)) {
+                $this->copyCustomConfigFile($recipe);
+            } else {
+                $this->mountCustomConfigFile($recipe);
+            }
+        } else {
+            $this->processTwigConfigFile($recipe);
+        }
+    }
+
+    private function copyCustomConfigFile(Recipe $recipe): void {
+        // Check if the config file exists.
+        $assetsPath = $this->getAssetsPath();
+        // Copy the config file to the assets path.
+        copy($recipe->configFile, $assetsPath.'/config.php');
+    }
+
+    /**
+     * Mount the config file as a docker volume so it can be live edited.
+     */
+    private function mountCustomConfigFile(Recipe $recipe): void {
+        // Mount the recipe config file as a Docker volume by adding its path to the dockerData volumes list.
+        if (!isset($this->dockerData)) {
+            $this->establishDockerData();
+        }
+        if (!isset($this->dockerData->volumes) || !is_array($this->dockerData->volumes)) {
+            $this->dockerData->volumes = [];
+        }
+
+        // Mount host config file to /var/www/html/config.php inside container
+        $this->dockerData->volumes[] = [
+            'type' => 'bind',
+            'source' => realpath($recipe->configFile),
+            'target' => '/var/www/html/config.php',
+        ];
+    }
+
+    private function processTwigConfigFile(Recipe $recipe): void {
+        $assetsPath = $this->getAssetsPath();
         // Create moodle config asset.
         try {
             $moodleConfigContents = $this->twig->render('@moodle/config.php.twig', (array) $recipe);
@@ -417,20 +480,6 @@ class Main extends AbstractService {
             mkdir($browserConfigAssetsPath, 0755, true);
         }
         file_put_contents($browserConfigAssetsPath.'/config.php', $browserConfigContents);
-
-        if ($recipe->includeXdebug || $recipe->developer) {
-            try {
-                $xdebugContents = $this->twig->render('@docker/install-xdebug.sh.twig', ['mode' => $recipe->xdebugMode ?? 'debug']);
-            } catch (\Exception $e) {
-                throw new Exception('Failed to parse install-xdebug.sh template: '.$e->getMessage());
-            }
-        }
-        $scriptsAssetsPath = $assetsPath.'/scripts';
-        if (!file_exists($scriptsAssetsPath)) {
-            mkdir($scriptsAssetsPath, 0755, true);
-        }
-        file_put_contents($scriptsAssetsPath.'/install-xdebug.sh', $xdebugContents);
-
     }
 
     public function getRegisteredUuid(string $chefPath): ?string {

@@ -195,7 +195,12 @@ class Recipe extends AbstractModel {
 
         public ?string $behatWwwRoot = null,
 
-        public ?string $lang = null
+        public ?string $lang = null,
+
+        /**
+         * @var string|null - path to a custom config file to use instead of the default moodle config.
+         */
+        public ?string $configFile = null,
 
     ) {}
 }

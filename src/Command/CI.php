@@ -127,7 +127,7 @@ class CI extends AbstractCommand {
      * Publish image to registry if environment variables are configured
      */
     private function publishImage(string $imageName, string $tag): void {
-        $registryConfig = $this->getRegistryConfig();
+        $registryConfig = $this->environmentService->getRegistryConfig();
         
         if (empty($registryConfig)) {
             $this->cli->warning('Registry environment variables not configured - skipping publish');
@@ -188,27 +188,6 @@ class CI extends AbstractCommand {
         $sanitized = trim($sanitized, '-');
         
         return $sanitized;
-    }
-
-    /**
-     * Get registry configuration from environment variables
-     */
-    private function getRegistryConfig(): ?array {
-        $url = $this->environmentService->get('MCHEF_REGISTRY_URL');
-        $username = $this->environmentService->get('MCHEF_REGISTRY_USERNAME');
-        $password = $this->environmentService->get('MCHEF_REGISTRY_PASSWORD');
-        $token = $this->environmentService->get('MCHEF_REGISTRY_TOKEN');
-        
-        if (empty($url) || empty($username) || (empty($password) && empty($token))) {
-            return null;
-        }
-        
-        return [
-            'url' => $url,
-            'username' => $username,
-            'password' => $password ?: null,
-            'token' => $token ?: null
-        ];
     }
 
     /**
