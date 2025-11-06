@@ -197,5 +197,7 @@ class Recipe extends AbstractModel {
          */
         public ?string $configFile = null,
 
+        public $config = null,
+
     ) {}
 }
