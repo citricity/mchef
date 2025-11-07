@@ -5,6 +5,7 @@ namespace App\Command;
 use App\Database\DatabaseInterface;
 use App\Database\Mysql;
 use App\Database\Postgres;
+use App\Database\Mariadb;
 use App\Model\Recipe;
 use App\Model\RegistryInstance;
 use App\StaticVars;
@@ -20,7 +21,7 @@ class Database extends AbstractCommand {
     // Other properties.
     private RegistryInstance $instance;
     private Recipe $recipe;
-    private Mysql | Postgres $database;
+    private Mysql | Postgres | Mariadb $database;
 
     // Constants.
     const COMMAND_NAME = 'database';
@@ -33,16 +34,16 @@ class Database extends AbstractCommand {
         $this->cli->notice('TODO: Exec onto database...');
     }
 
-    private function wipeDatabase() {
+    private function dropTables() {
         $this->cli->promptYesNo("ADVICE: TAKE A BACKUP FIRST!\n".
-            "Are you sure you want to wipe your db?",
+            "Are you sure you want to drop all tables from your db?",
             function() {
                 try {
-                    $this->database->wipe();
+                    $this->database->dropAllTables();
                 } catch (\Throwable $e) {
-                    throw new \RuntimeException('Failed to wipe database', previous: $e);
+                    throw new \RuntimeException('Failed to drop all tables from database', previous: $e);
                 }
-                $this->cli->success('All tables should be wiped from database');
+                $this->cli->success('All tables should be dropped from database');
             }
         );
     }
@@ -103,6 +104,7 @@ class Database extends AbstractCommand {
         return match ($this->recipe->dbType) {
             'pgsql' => new Postgres($this->recipe, $this->cli),
             'mysql' => new Mysql($this->recipe, $this->cli),
+            'mariadb' => new Mariadb($this->recipe, $this->cli),
             default => throw new \InvalidArgumentException(
                 "Unsupported database type {$this->recipe->dbType}"
             ),
@@ -116,8 +118,8 @@ class Database extends AbstractCommand {
         $this->recipe = $this->mainService->getRecipe($this->instance->recipePath);
         $this->database = $this->resolveDatabase();
 
-        if (!empty($options->getOpt('wipe'))) {
-            $this->wipeDatabase();
+        if (!empty($options->getOpt('droptables'))) {
+            $this->dropTables();
             return;
         }
         if (!empty($options->getOpt('exec'))) {
@@ -170,7 +172,7 @@ class Database extends AbstractCommand {
    protected function register(Options $options): void {
         $options->registerCommand(self::COMMAND_NAME, 'Database utilities');
         $options->registerOption('exec', 'Exec onto database', 'e', false, self::COMMAND_NAME);
-        $options->registerOption('wipe', 'Wipe database', 'w', false, self::COMMAND_NAME);
+        $options->registerOption('droptables', 'Drop all tables from database', 'd', false, self::COMMAND_NAME);
         $options->registerOption('info', 'Get db connection info', 'i', false, self::COMMAND_NAME);
         $options->registerOption('client', 'Specify database client (dbeaver, pgadmin, mysql workbench, psql (cli), mysql (cli))', 'c', false, self::COMMAND_NAME);
     }

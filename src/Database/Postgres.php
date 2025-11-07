@@ -8,7 +8,7 @@ use App\Service\Docker;
 use App\Service\Main;
 
 class Postgres extends AbstractDatabase implements DatabaseInterface {
-    public function wipe(): void {
+    public function dropAllTables(): void {
         $mainService   = Main::instance($this->cli);
         $dbContainer   = $mainService->getDockerDatabaseContainerName();
         $dockerService = Docker::instance($this->cli);
@@ -121,4 +121,19 @@ class Postgres extends AbstractDatabase implements DatabaseInterface {
     public function mysqlConnectionString(): string {
         throw new \InvalidArgumentException('mysql CLI can only be used with MySQL databases');
     }
+
+    public function buildDBQueryDockerCommand(string $query, bool $isCheck = false): string {
+        $mainService = Main::instance($this->cli);
+        $dbContainer = $mainService->getDockerDatabaseContainerName();
+        $recipe      = $this->recipe;
+        $pgCommand   = escapeshellarg('psql -U ' . $recipe->dbUser . ' -d ' . $recipe->dbName . ' -c "' . $query . '" > /dev/null 2>&1');
+        $dbCommand   = $this->buildExecDockerCommand($dbContainer, $pgCommand);
+
+        if ($isCheck) {
+            $dbCommand .= ' || exit 1';
+        }
+
+        return $dbCommand;
+    }
+
 }

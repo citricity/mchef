@@ -7,17 +7,18 @@ use App\StaticVars;
 
 use PDO;
 
-class Postgres extends PDO {
+class Mariadb extends PDO {
+
     public function __construct($options = null) {
         $recipe = StaticVars::$recipe;
-        if ($recipe->dbType !== 'pgsql') {
-            throw new \Exception('Database type is not pgsql!');
+        if ($recipe->dbType !== 'mariadb') {
+            throw new \Exception('Database type is not mariadb!');
         }
-        
-        $host = 'localhost';
-        $port = $recipe->dbHostPort ?? 5432;
 
-        parent::__construct("pgsql:host=$host;port=$port;dbname=$recipe->dbName",
+        $host = 'localhost';
+        $port = $recipe->dbHostPort ?? 3306;
+
+        parent::__construct("mysql:host=$host;port=$port;dbname=$recipe->dbName",
             $recipe->dbUser,
             $recipe->dbPassword, $options);
     }

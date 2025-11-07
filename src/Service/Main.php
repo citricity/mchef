@@ -10,6 +10,7 @@ use App\Model\RegistryInstance;
 use App\StaticVars;
 use App\Traits\ExecTrait;
 use splitbrain\phpcli\Exception;
+use App\Service\Database;
 
 class Main extends AbstractService {
 
@@ -22,6 +23,7 @@ class Main extends AbstractService {
     private File $fileService;
     private RecipeService $recipeService;
     private ProxyService $proxyService;
+    private Database $databaseService;
 
     // Models
     private Recipe $recipe;
@@ -125,13 +127,13 @@ class Main extends AbstractService {
         // Remove plugin volumes (could be cached in plugins) if recipe does not want them.
         if (empty($this->recipe->mountPlugins)) {
             $plugins = $this->pluginsService->getPluginsInfoFromRecipe($this->recipe);
-            
+
             $pluginPaths = [];
             foreach ($plugins->volumes as $pluginVolume) {
                 $path = $pluginVolume->path;
                 $pluginPaths[] = $path;
             }
-            
+
             $volumes = array_filter(
                 $dockerData->volumes,
                 function($vol) use($pluginPaths) {
@@ -145,6 +147,7 @@ class Main extends AbstractService {
         // Re-render the compose file with the correct hostPort
         $dockerComposeFileContents = $this->twig->render('@docker/main.compose.yml.twig', (array) $dockerData);
         file_put_contents($ymlPath, $dockerComposeFileContents);
+        $this->cli->notice('Created docker compose file at '.$ymlPath);
 
         // Compose the command
         $cmd = "docker compose --project-directory \"{$this->getChefPath()}/docker\" -f \"$ymlPath\" up -d --force-recreate --build";
@@ -204,6 +207,7 @@ class Main extends AbstractService {
     private function configureDockerNetwork(Recipe $recipe): void {
         // TODO LOW priority- default should be mc-network unless defined in recipe or main config.
         $networkName = 'mc-network';
+        $database = $this->databaseService::getDatabase();
 
         if ($this->dockerService->networkExists($networkName)) {
             $this->cli->info('Skipping creating network as it exists: '.$networkName);
@@ -237,9 +241,7 @@ class Main extends AbstractService {
             $this->cli->notice('Try installing MoodleDB');
 
             $dbnotready = true;
-            $dbCheckCmd = 'docker exec ' . escapeshellarg($dbContainer) . ' sh -c ' . escapeshellarg('psql -U ' . $recipe->dbUser . ' -d ' . $recipe->dbName . ' -c "SELECT 1" > /dev/null 2>&1');
-
-
+            $dbCheckCmd = $database->buildDBQueryDockerCommand('SELECT 1');
             while ($dbnotready) {
                 exec($dbCheckCmd, $output, $returnVar);
                 if ($returnVar === 0) {
@@ -250,15 +252,7 @@ class Main extends AbstractService {
             }
             $this->cli->notice('DB '.$dbContainer.' ready!');
 
-            $dockerDbExecBase = 'docker exec ' . escapeshellarg($dbContainer);
-
-            if (OS::isWindows()) {
-                // For Windows, `cmd` is used with `/c` to execute the command
-                $dbSchemaInstalledCmd = $dockerDbExecBase . ' cmd /c "psql -U ' . $recipe->dbUser . ' -d ' . $recipe->dbName . ' -c \\"SELECT * FROM mdl_course\\" > nul 2>&1 || exit 1"';
-            } else {
-                // For Linux, use `sh` as the shell
-                $dbSchemaInstalledCmd = $dockerDbExecBase . ' sh -c "psql -U ' . $recipe->dbUser . ' -d ' . $recipe->dbName . ' -c \\"SELECT * FROM mdl_course\\" > /dev/null 2>&1 || exit 1"';
-            }
+            $dbSchemaInstalledCmd = $database->buildDBQueryDockerCommand('SELECT * FROM mdl_course', true);
 
             // Execute the command
             exec($dbSchemaInstalledCmd, $output, $returnVar);
@@ -292,14 +286,9 @@ class Main extends AbstractService {
                     if (strtolower(trim($overwrite)) === 'yes') {
                         $this->cli->notice('Overwriting the existing Moodle database...');
                         // Drop all DB Tables in public
-                        $dbdeletecmd = 'docker exec ' . $dbContainer . ' psql -U ' . $recipe->dbUser . ' -d ' . $recipe->dbName .
-                            ' -c "DO \$\$ DECLARE row RECORD; BEGIN FOR row IN (SELECT tablename FROM pg_tables WHERE schemaname = \'public\') LOOP EXECUTE \'DROP TABLE IF EXISTS public.\' || quote_ident(row.tablename); END LOOP; END \$\$;"';
-
-                        exec($dbdeletecmd, $outpup, $return);
-
+                        $database->dropAllTables();
                         // Do the installation again, should work now
                         $this->execPassthru($cmdinstall);
-
                     } else {
                         $this->cli->notice('Skipping Moodle database installation.');
                     }
@@ -310,7 +299,7 @@ class Main extends AbstractService {
     }
 
     private function checkPortBinding(Recipe $recipe): bool {
-      return $this->dockerService->checkPortAvailable($this->getHostPort($recipe));
+        return $this->dockerService->checkPortAvailable($this->getHostPort($recipe));
     }
 
     public function hostPath() : string {
@@ -509,13 +498,13 @@ class Main extends AbstractService {
 
         $dockerData = new DockerData($volumes, null, ...(array) $recipe);
         $dockerData->volumes = $volumes;
-        
+
         // Add plugin data for dockerfile shallow cloning
         if ($recipe->plugins) {
             $pluginsForDocker = [];
             foreach ($recipe->plugins as $plugin) {
                 $recipePlugin = $this->pluginsService->extractRepoInfoFromPlugin($plugin);
-                
+
                 // Only include GitHub repositories for cloning
                 if (strpos($recipePlugin->repo, 'https://github.com') === 0 || strpos($recipePlugin->repo, 'git@github.com') === 0) {
                     // Find plugin info to get the Moodle path
@@ -549,7 +538,7 @@ class Main extends AbstractService {
             }
             $dockerData->pluginsForDocker = $pluginsForDocker;
         }
-        
+
         $this->dockerData = $dockerData;
 
         if ($recipe->updateHostHosts) {
@@ -667,7 +656,7 @@ class Main extends AbstractService {
 
     /**
      * Prepare Docker data for CI builds (production settings, no volumes).
-     * 
+     *
      * @param Recipe $recipe The recipe to prepare
      * @return DockerData Prepared docker data for CI
      */
@@ -675,13 +664,13 @@ class Main extends AbstractService {
         // Create docker data with no volumes (CI build)
         $dockerData = new DockerData([], null, ...(array) $recipe);
         $dockerData->volumes = [];
-        
+
         // Add plugin data for dockerfile shallow cloning (if not disabled)
         if ($recipe->plugins && !$recipe->cloneRepoPlugins) {
             $pluginsForDocker = [];
             foreach ($recipe->plugins as $plugin) {
                 $recipePlugin = $this->pluginsService->extractRepoInfoFromPlugin($plugin);
-                
+
                 // Only include GitHub repositories for cloning
                 if (strpos($recipePlugin->repo, 'https://github.com') === 0 || strpos($recipePlugin->repo, 'git@github.com') === 0) {
                     // For CI builds, we don't need volume mounts, just the plugin info for shallow cloning
@@ -694,44 +683,44 @@ class Main extends AbstractService {
             }
             $dockerData->pluginsForDocker = $pluginsForDocker;
         }
-        
+
         return $dockerData;
     }
 
     /**
      * Build Docker image for CI/production purposes with custom image name.
-     * 
+     *
      * @param Recipe $recipe The recipe to build
      * @param string $imageName Custom image name to tag the built image
      * @throws Exception If build fails
      */
     public function buildDockerImage(Recipe $recipe, string $imageName): void {
         $this->cli->info("Building Docker image: {$imageName}");
-        
+
         // Set static vars for template rendering
         StaticVars::$recipe = $recipe;
-        
+
         // Generate temporary project directory for build
         $buildDir = $this->getChefPath() . '/ci-build-' . uniqid();
         $dockerDir = $buildDir . '/docker';
-        
+
         try {
             // Create build directory
             if (!mkdir($dockerDir, 0755, true)) {
                 throw new Exception("Failed to create build directory: {$dockerDir}");
             }
-            
+
             // Prepare docker data for CI build (no volumes, production settings)
             $dockerData = $this->prepareDockerDataForCI($recipe);
-            
+
             // Render docker-compose file for CI build
             $ymlPath = $dockerDir . '/docker-compose.yml';
             $dockerComposeFileContents = $this->twig->render('@docker/main.compose.yml.twig', (array) $dockerData);
             file_put_contents($ymlPath, $dockerComposeFileContents);
-            
+
             // Build the image using docker compose
             $this->dockerService->buildImageWithCompose($ymlPath, $imageName, $dockerDir);
-            
+
         } finally {
             // Clean up build directory
             if (is_dir($buildDir)) {

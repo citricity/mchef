@@ -23,8 +23,15 @@ ENV BEHAT_HOST="{{ behatHost }}"
 ENV BEHAT_WWWROOT="{{ behatWwwRoot }}"
 {% endif %}
 
-{%if (developer) %}
-RUN apt update && apt install --no-install-recommends -y vim iputils-ping postgresql-client
+{% if (developer) %}
+RUN apt update && apt install --no-install-recommends -y vim iputils-ping
+
+{% if (dbType ?? 'pgsql') == 'pgsql' %}
+RUN apt update && apt install --no-install-recommends -y postgresql-client
+{% elseif dbType == 'mysql' or dbType == 'mariadb' %}
+RUN apt update && apt install --no-install-recommends -y mariadb-client
+{% endif %}
+
 {% endif %}
 
 RUN \
