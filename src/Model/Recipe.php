@@ -197,12 +197,13 @@ class Recipe extends AbstractModel {
 
         public ?string $lang = null,
 
-        /**
-         * @var string|null - path to a custom config file to use instead of the default moodle config.
-         */
         public ?string $configFile = null,
 
         public $config = null,
+
+        public ?string $customConfigFile = null,
+
+        public bool $copyCustomConfigFile = false,
 
     ) {}
 }

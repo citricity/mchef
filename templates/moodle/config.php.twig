@@ -77,6 +77,11 @@ $CFG->behat_profiles['host-chrome'] = [
 
 {% endif %}
 
+{% if (customConfigFile) %}
+// Custom config file.
+require_once('{{customConfigFile}}');
+{% endif %}
+
 require_once(__DIR__ . '/lib/setup.php');
 
 // There is no php closing tag in this file,
