@@ -12,6 +12,7 @@ use App\Traits\ExecTrait;
 use splitbrain\phpcli\Exception;
 use App\Service\Database;
 use App\Model\Volume;
+use App\Service\MoodleConfig;
 
 class Main extends AbstractService {
 
@@ -35,7 +36,7 @@ class Main extends AbstractService {
     private DockerData $dockerData;
 
     // Other properties
-    private \Twig\Environment $twig;
+    public \Twig\Environment $twig;
     private ?string $chefPath = null;
 
     protected function __construct() {
@@ -45,6 +46,14 @@ class Main extends AbstractService {
         $loader->addPath(__DIR__.'/../../templates/docker', 'docker');
         $this->twig = new \Twig\Environment($loader);
         parent::__construct();
+    }
+
+    public function getTwig(): \Twig\Environment {
+        return $this->twig;
+    }
+
+    public function getDockerData(): DockerData {
+        return $this->dockerData;
     }
 
     final public static function instance(): Main {
@@ -399,7 +408,7 @@ class Main extends AbstractService {
             mkdir($assetsPath, 0755, true);
         }
 
-        $this->processConfigFile($recipe);
+        MoodleConfig::instance()->processConfigFile($recipe);
 
         if ($recipe->includeXdebug || $recipe->developer) {
             try {
@@ -416,146 +425,6 @@ class Main extends AbstractService {
 
     }
 
-    /**
-     * Loads the config file data from the recipe.
-     * Either a custom config file path ($recipe->configFile),
-     * or a custom config to be added at the end of
-     * the existing file ($recipe->config).
-     */
-    private function processConfigFile(Recipe &$recipe): void {
-        if (!empty($recipe->configFile)) {
-            if (!file_exists($recipe->configFile)) {
-                throw new Exception('Config file does not exist: ' . $recipe->configFile);
-            }
-            $registryConfig = $this->environmentService->getRegistryConfig();
-            
-            if (empty($registryConfig) && !empty($recipe->mountPlugins)) {
-                // If not in publishing mode and recipe has mountPlugins = true.
-                // Mount the custom config file as a shared volume so it can be updated by the host.
-                $this->mountCustomConfigFile($recipe);
-            } else {
-                $this->copyCustomConfigFile($recipe);
-                $recipe->copyCustomConfigFile = true;
-            }
-        } else if (!empty($recipe->config)) {
-            $this->buildCustomConfigFileFromConfig($recipe);
-            $recipe->copyCustomConfigFile = true;
-        }
-
-        $this->processTwigConfigFile($recipe);
-    }
-
-    private function copyCustomConfigFile(Recipe &$recipe): void {
-        $assetsPath = $this->getAssetsPath();
-        // Copy the config file to the assets path.
-        copy($recipe->configFile, $assetsPath.'/config-local.php');
-        $recipe->customConfigFile = '/var/www/html/moodle/config-local.php';
-    }
-
-    /**
-     * Mount the config file as a docker volume so it can be live edited.
-     */
-    private function mountCustomConfigFile(Recipe &$recipe): void {
-        // Mount the recipe config file as a Docker volume by adding its path to the dockerData volumes list.
-        if (!isset($this->dockerData)) {
-            $this->establishDockerData();
-        }
-        if (!isset($this->dockerData->volumes) || !is_array($this->dockerData->volumes)) {
-            $this->dockerData->volumes = [];
-        }
-
-        // Mount host custom config file to /var/www/html/moodle/config-local.php inside container
-        $customConfigPath = '/var/www/html/moodle/config-local.php';
-        $volume = new Volume(
-            path: '/config-local.php',
-            hostPath: OS::isWindows()
-                ? $this->dockerService->windowsToDockerPath($recipe->configFile)
-                : $recipe->configFile,
-        );
-
-        $this->dockerData->volumes[] = $volume;
-        $recipe->customConfigFile = $customConfigPath;
-    }
-
-    private function buildCustomConfigFileFromConfig(Recipe &$recipe) {
-        $config = (array)$recipe->config;
-        $cfgLines = [];
-        $cfgLines[] = '<?php';
-
-        $addToLines = function($key, $value, $parent = "\$CFG", $parentIsObject = true) use (&$cfgLines, &$addToLines) {
-            $identifier = $parentIsObject ? "{$parent}->{$key}" : "{$parent}[$key]";
-            // Convert the PHP value to appropriate PHP code
-            if (is_array($value) || is_object($value)) {
-                // Recursively handle arrays/objects as nested objects/arrays in the config
-                $isAssoc = false;
-                if (is_array($value)) {
-                    $isAssoc = (bool)count(array_filter(array_keys($value), 'is_string'));
-                }
-                if ($isAssoc) {
-                    $cfgLines[] = "{$identifier} = [];";
-                    
-                    foreach ($value as $k => $v) {
-                        $addToLines("'$k'", $v, $identifier, false);
-                    }
-                } else {
-                    // Treat as numeric array
-                    $arrVals = [];
-                    foreach ($value as $v) {
-                        $arrVals[] = var_export($v, true);
-                    }
-                    $cfgLines[] = "{$identifier} = [" . implode(", ", $arrVals) . "];";
-                }
-            } else {
-                // Scalar value (string, int, bool, null)
-                if (is_string($value)) {
-                    $val = var_export($value, true);
-                } else if (is_bool($value)) {
-                    $val = $value ? 'true' : 'false';
-                } else if (is_null($value)) {
-                    $val = 'null';
-                } else {
-                    $val = var_export($value, true);
-                }
-                $cfgLines[] = "{$identifier} = {$val};";
-            }
-        };
-
-        foreach ($config as $key => $value) {
-            $addToLines($key, $value);
-        }
-
-        $assetsPath = $this->getAssetsPath();
-        $customConfigPath = $assetsPath . '/config-local.php';
-        $this->cli->notice('Adding custom config file to: ' . $customConfigPath);
-        file_put_contents($customConfigPath, implode(PHP_EOL, $cfgLines));
-        $recipe->customConfigFile = '/var/www/html/moodle/config-local.php';
-    }
-
-    private function processTwigConfigFile(Recipe $recipe): void {
-        $assetsPath = $this->getAssetsPath();
-        // Create moodle config asset.
-        try {
-            $moodleConfigContents = $this->twig->render('@moodle/config.php.twig', (array) $recipe);
-        } catch (\Exception $e) {
-            throw new Exception('Failed to parse config.php template: '.$e->getMessage());
-        }
-        file_put_contents($assetsPath.'/config.php', $moodleConfigContents);
-
-        if ($recipe->includeBehat || $recipe->developer) {
-            try {
-                // Create moodle-browser-config config.
-                $browserConfigContents = $this->twig->render('@moodle-browser/config.php.twig', (array) $recipe);
-            } catch (\Exception $e) {
-                throw new Exception('Failed to parse moodle-browser config.php template: '.$e->getMessage());
-            }
-        }
-        $browserConfigAssetsPath = $assetsPath.'/moodle-browser-config';
-        if (!file_exists($browserConfigAssetsPath)) {
-            mkdir($browserConfigAssetsPath, 0755, true);
-        }
-        file_put_contents($browserConfigAssetsPath.'/config.php', $browserConfigContents);
-    }
-
     public function getRegisteredUuid(string $chefPath): ?string {
         $path = OS::path($chefPath.'/registry_uuid.txt');
         if (file_exists($path)) {
@@ -564,7 +433,7 @@ class Main extends AbstractService {
         return null;
     }
 
-    private function establishDockerData() {
+    public function establishDockerData() {
         if (!empty($this->dockerData)) {
             return $this->dockerData;
         }
