@@ -1,0 +1,190 @@
+<?php
+
+namespace App\Tests;
+
+use App\Service\MoodleConfig;
+use App\Model\Recipe;
+use App\Model\DockerData;
+use App\Model\Volume;
+use PHPUnit\Framework\MockObject\MockObject;
+use App\Service\Main;
+use App\Service\Environment;
+
+/**
+ * @covers \App\Service\MoodleConfig
+ */
+class MoodleConfigServiceTest extends MchefTestCase
+{
+
+    public function setUp(): void
+    {
+        parent::setUp();
+
+        // Ensure singleton is created so StaticVars::$cli is injected via constructor.
+        MoodleConfig::instance();
+    }
+
+    use \App\Traits\CallRestrictedMethodTrait;
+
+    public function testBuildCustomConfigFileFromConfigCreatesFileAndSetsRecipeCustomConfigFile(): void
+    {
+        $moodleConfig = MoodleConfig::instance();
+
+        $assetsPath = sys_get_temp_dir().'/mchef_assets_'.uniqid();
+        mkdir($assetsPath, 0755, true);
+
+        // Mock Main service with getAssetsPath only and provide a twig environment for later calls
+        // Use a real Main instance so Twig namespaces and methods are available
+        $realMain = Main::instance();
+        $chefBase = sys_get_temp_dir().'/mchef_chef_'.uniqid();
+        // Set chefPath so Main::getAssetsPath() will resolve under our temp dir
+        $this->setRestrictedProperty($realMain, 'chefPath', $chefBase);
+        mkdir($chefBase.'/docker/assets', 0755, true);
+        // Inject the real main service configured for this test
+        $this->applyMockedServices(
+            [
+                'mainService' => $realMain,
+            ],
+            $moodleConfig
+        );
+
+        $recipe = new Recipe('v4.5.0', '8.0');
+        $recipe->config = [
+            'dataroot' => '/tmp/moodledata',
+            'admin' => (object)['email' => 'admin@example.com'],
+            'flags' => [1, 2, 3]
+        ];
+        // Ensure browser template is rendered to avoid undefined variable later
+        $recipe->includeBehat = true;
+
+        // Call the public entry point which will invoke the builder
+        $moodleConfig->processConfigFile($recipe);
+
+        $expectedPath = $realMain->getAssetsPath().'/config-local.php';
+        $this->assertFileExists($expectedPath);
+        $contents = file_get_contents($expectedPath);
+        $this->assertStringContainsString("\$CFG->dataroot = '/tmp/moodledata';", $contents);
+        $this->assertStringContainsString("\$CFG->admin = ['admin@example.com'];", $contents);
+        $this->assertStringContainsString("\$CFG->flags = [1, 2, 3];", $contents);
+
+        $this->assertEquals('/var/www/html/moodle/config-local.php', $recipe->customConfigFile);
+
+        // Cleanup
+        $assetsPathReal = $realMain->getAssetsPath();
+        unlink($expectedPath);
+        unlink($assetsPathReal.'/config.php');
+        unlink($assetsPathReal.'/moodle-browser-config/config.php');
+        rmdir($assetsPathReal.'/moodle-browser-config');
+        rmdir($assetsPathReal);
+        rmdir(dirname($assetsPathReal));
+    }
+
+    public function testProcessConfigFileCopiesCustomConfigFileWhenRegistryPresent(): void
+    {
+        $moodleConfig = MoodleConfig::instance();
+
+        $base = sys_get_temp_dir().'/mchef_copy_'.uniqid();
+        $assetsPath = $base.'/docker/assets';
+        mkdir($assetsPath, 0755, true);
+
+        // Use a real Main instance so Twig namespaces are available
+        $realMain = Main::instance();
+        $this->setRestrictedProperty($realMain, 'chefPath', $base);
+        mkdir($base.'/docker/assets', 0755, true);
+
+        $envMock = $this->getMockBuilder(Environment::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods(['getRegistryConfig'])
+            ->getMock();
+        $envMock->method('getRegistryConfig')->willReturn(['some' => 'config']);
+
+        $this->applyMockedServices(
+            [
+                'mainService' => $realMain,
+                'environmentService' => $envMock,
+            ],
+            $moodleConfig
+        );
+        $tempFile = tempnam(sys_get_temp_dir(), 'mchef_cfg_');
+        file_put_contents($tempFile, "<?php // test config\n");
+
+        $recipe = new Recipe('v4.5.0', '8.0');
+        $recipe->configFile = $tempFile;
+        $recipe->mountPlugins = false;
+        $recipe->includeBehat = true;
+
+        // Execute - should copy and then render twig templates
+        $moodleConfig->processConfigFile($recipe);
+
+        $this->assertTrue($recipe->copyCustomConfigFile);
+        $this->assertEquals('/var/www/html/moodle/config-local.php', $recipe->customConfigFile);
+        $this->assertFileExists($realMain->getAssetsPath().'/config-local.php');
+        $this->assertFileExists($realMain->getAssetsPath().'/config.php');
+
+        // Cleanup
+        unlink($tempFile);
+        unlink($assetsPath.'/config-local.php');
+        unlink($assetsPath.'/config.php');
+        rmdir($assetsPath.'/moodle-browser-config');
+        rmdir(dirname($assetsPath));
+        rmdir($base);
+    }
+
+    public function testProcessConfigFileMountsCustomConfigFileWhenMountPluginsAndNoRegistry(): void
+    {
+        $moodleConfig = MoodleConfig::instance();
+
+        $base = sys_get_temp_dir().'/mchef_mount_'.uniqid();
+        $assetsPath = $base.'/docker/assets';
+        mkdir($assetsPath, 0755, true);
+
+        // Use a real Main instance so Twig namespaces and DockerData operations work as expected
+        $realMain = Main::instance();
+        $this->setRestrictedProperty($realMain, 'chefPath', $base);
+        mkdir($base.'/docker/assets', 0755, true);
+
+        $envMock = $this->getMockBuilder(Environment::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods(['getRegistryConfig'])
+            ->getMock();
+        $envMock->method('getRegistryConfig')->willReturn(null);
+
+        $tempFile = tempnam(sys_get_temp_dir(), 'mchef_cfg_');
+        file_put_contents($tempFile, "<?php // mount config\n");
+
+        $recipe = new Recipe('v4.5.0', '8.0');
+        $recipe->configFile = $tempFile;
+        $recipe->mountPlugins = true;
+        $recipe->includeBehat = true;
+        $recipe->setRecipePath($base);
+
+        // Make sure Main has a recipe so establishDockerData() can use it
+        $this->setRestrictedProperty($realMain, 'recipe', $recipe);
+
+        $this->applyMockedServices(
+            [
+                'mainService' => $realMain,
+                'environmentService' => $envMock,
+            ],
+            $moodleConfig
+        );
+
+        $moodleConfig->processConfigFile($recipe);
+
+        $dockerData = $realMain->getDockerData();
+
+        $this->assertEquals('/var/www/html/moodle/config-local.php', $recipe->customConfigFile);
+        $this->assertCount(1, $dockerData->volumes);
+        $this->assertInstanceOf(Volume::class, $dockerData->volumes[0]);
+        $this->assertEquals($tempFile, $dockerData->volumes[0]->hostPath);
+
+        // Cleanup
+        unlink($tempFile);
+        unlink($realMain->getAssetsPath().'/config.php');
+        unlink($realMain->getAssetsPath().'/moodle-browser-config/config.php');
+        rmdir($realMain->getAssetsPath().'/moodle-browser-config');
+        rmdir($realMain->getAssetsPath());
+        rmdir(dirname($realMain->getAssetsPath()));
+        rmdir($base);
+    }
+}
