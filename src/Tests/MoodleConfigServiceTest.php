@@ -73,7 +73,7 @@ class MoodleConfigServiceTest extends MchefTestCase
         $recipe = new Recipe('v4.5.0', '8.0');
         $recipe->config = [
             'dataroot' => '/tmp/moodledata',
-            'admin' => (object)['email' => 'admin@example.com'],
+            'admin' => ['email' => 'admin@example.com'],
             'flags' => [1, 2, 3]
         ];
         // Ensure browser template is rendered to avoid undefined variable later
@@ -86,7 +86,8 @@ class MoodleConfigServiceTest extends MchefTestCase
         $this->assertFileExists($expectedPath);
         $contents = file_get_contents($expectedPath);
         $this->assertStringContainsString("\$CFG->dataroot = '/tmp/moodledata';", $contents);
-        $this->assertStringContainsString("\$CFG->admin = ['admin@example.com'];", $contents);
+        $this->assertStringContainsString("\$CFG->admin = [];", $contents);
+        $this->assertStringContainsString("\$CFG->admin['email'] = 'admin@example.com';", $contents);
         $this->assertStringContainsString("\$CFG->flags = [1, 2, 3];", $contents);
 
         $this->assertEquals('/var/www/html/moodle/config-local.php', $recipe->customConfigFile);
