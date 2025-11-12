@@ -38,7 +38,7 @@ class MoodleConfig extends AbstractService
     public function processConfigFile(Recipe &$recipe): void {
         if (!empty($recipe->configFile)) {
             if (!file_exists($recipe->configFile)) {
-                throw new Exception('Config file does not exist: ' . $recipe->configFile);
+                throw new \Exception('Config file does not exist: ' . $recipe->configFile);
             }
             $registryConfig = $this->environmentService->getRegistryConfig();
 
@@ -147,7 +147,7 @@ class MoodleConfig extends AbstractService
         try {
             $moodleConfigContents = $this->mainService->twig->render('@moodle/config.php.twig', (array) $recipe);
         } catch (\Exception $e) {
-            throw new Exception('Failed to parse config.php template: '.$e->getMessage());
+            throw new \Exception('Failed to parse config.php template: '.$e->getMessage());
         }
         file_put_contents($assetsPath.'/config.php', $moodleConfigContents);
 
@@ -156,7 +156,7 @@ class MoodleConfig extends AbstractService
                 // Create moodle-browser-config config.
                 $browserConfigContents = $this->mainService->twig->render('@moodle-browser/config.php.twig', (array) $recipe);
             } catch (\Exception $e) {
-                throw new Exception('Failed to parse moodle-browser config.php template: '.$e->getMessage());
+                throw new \Exception('Failed to parse moodle-browser config.php template: '.$e->getMessage());
             }
         }
         $browserConfigAssetsPath = $assetsPath.'/moodle-browser-config';
