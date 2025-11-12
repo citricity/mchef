@@ -26,6 +26,26 @@ class MoodleConfigServiceTest extends MchefTestCase
 
     use \App\Traits\CallRestrictedMethodTrait;
 
+    /**
+     * Recursively remove a directory and all its contents.
+     */
+    private function removeDirectoryRecursive(string $dir): void
+    {
+        if (!is_dir($dir)) {
+            return;
+        }
+        $files = array_diff(scandir($dir), ['.', '..']);
+        foreach ($files as $file) {
+            $path = "$dir/$file";
+            if (is_dir($path)) {
+                $this->removeDirectoryRecursive($path);
+            } else {
+                unlink($path);
+            }
+        }
+        rmdir($dir);
+    }
+
     public function testBuildCustomConfigFileFromConfigCreatesFileAndSetsRecipeCustomConfigFile(): void
     {
         $moodleConfig = MoodleConfig::instance();
@@ -39,7 +59,9 @@ class MoodleConfigServiceTest extends MchefTestCase
         $chefBase = sys_get_temp_dir().'/mchef_chef_'.uniqid();
         // Set chefPath so Main::getAssetsPath() will resolve under our temp dir
         $this->setRestrictedProperty($realMain, 'chefPath', $chefBase);
-        mkdir($chefBase.'/docker/assets', 0755, true);
+        if (!is_dir($chefBase.'/docker/assets')) {
+            mkdir($chefBase.'/docker/assets', 0755, true);
+        }
         // Inject the real main service configured for this test
         $this->applyMockedServices(
             [
@@ -71,12 +93,14 @@ class MoodleConfigServiceTest extends MchefTestCase
 
         // Cleanup
         $assetsPathReal = $realMain->getAssetsPath();
-        unlink($expectedPath);
-        unlink($assetsPathReal.'/config.php');
-        unlink($assetsPathReal.'/moodle-browser-config/config.php');
-        rmdir($assetsPathReal.'/moodle-browser-config');
-        rmdir($assetsPathReal);
-        rmdir(dirname($assetsPathReal));
+        $this->removeDirectoryRecursive($assetsPathReal);
+        $chefDir = dirname($assetsPathReal);
+        if (is_dir($chefDir)) {
+            rmdir($chefDir);
+        }
+        if (is_dir($chefBase)) {
+            rmdir($chefBase);
+        }
     }
 
     public function testProcessConfigFileCopiesCustomConfigFileWhenRegistryPresent(): void
@@ -90,7 +114,9 @@ class MoodleConfigServiceTest extends MchefTestCase
         // Use a real Main instance so Twig namespaces are available
         $realMain = Main::instance();
         $this->setRestrictedProperty($realMain, 'chefPath', $base);
-        mkdir($base.'/docker/assets', 0755, true);
+        if (!is_dir($base.'/docker/assets')) {
+            mkdir($base.'/docker/assets', 0755, true);
+        }
 
         $envMock = $this->getMockBuilder(Environment::class)
             ->disableOriginalConstructor()
@@ -123,11 +149,15 @@ class MoodleConfigServiceTest extends MchefTestCase
 
         // Cleanup
         unlink($tempFile);
-        unlink($assetsPath.'/config-local.php');
-        unlink($assetsPath.'/config.php');
-        rmdir($assetsPath.'/moodle-browser-config');
-        rmdir(dirname($assetsPath));
-        rmdir($base);
+        $assetsPath = $realMain->getAssetsPath();
+        $this->removeDirectoryRecursive($assetsPath);
+        $dockerDir = dirname($assetsPath);
+        if (is_dir($dockerDir)) {
+            rmdir($dockerDir);
+        }
+        if (is_dir($base)) {
+            rmdir($base);
+        }
     }
 
     public function testProcessConfigFileMountsCustomConfigFileWhenMountPluginsAndNoRegistry(): void
@@ -138,10 +168,12 @@ class MoodleConfigServiceTest extends MchefTestCase
         $assetsPath = $base.'/docker/assets';
         mkdir($assetsPath, 0755, true);
 
-        // Use a real Main instance so Twig namespaces and DockerData operations work as expected
+        // Use a real Main instance so Twig namespaces and DockerData work
         $realMain = Main::instance();
         $this->setRestrictedProperty($realMain, 'chefPath', $base);
-        mkdir($base.'/docker/assets', 0755, true);
+        if (!is_dir($base.'/docker/assets')) {
+            mkdir($base.'/docker/assets', 0755, true);
+        }
 
         $envMock = $this->getMockBuilder(Environment::class)
             ->disableOriginalConstructor()
@@ -180,11 +212,14 @@ class MoodleConfigServiceTest extends MchefTestCase
 
         // Cleanup
         unlink($tempFile);
-        unlink($realMain->getAssetsPath().'/config.php');
-        unlink($realMain->getAssetsPath().'/moodle-browser-config/config.php');
-        rmdir($realMain->getAssetsPath().'/moodle-browser-config');
-        rmdir($realMain->getAssetsPath());
-        rmdir(dirname($realMain->getAssetsPath()));
-        rmdir($base);
+        $assetsPath = $realMain->getAssetsPath();
+        $this->removeDirectoryRecursive($assetsPath);
+        $dockerDir = dirname($assetsPath);
+        if (is_dir($dockerDir)) {
+            rmdir($dockerDir);
+        }
+        if (is_dir($base)) {
+            rmdir($base);
+        }
     }
 }
