@@ -10,16 +10,13 @@ use App\Service\Environment;
 use App\Service\RecipeService;
 use App\Service\DockerService;
 
-class MoodleConfig extends AbstractService
-{
+class MoodleConfig extends AbstractService {
 
+    // Dependencies.
     private RecipeService $recipeService;
     private Environment $environmentService;
-
     private Main $mainService;
-
     private DockerService $dockerService;
-
 
     protected function __construct() {
         parent::__construct();

@@ -11,7 +11,6 @@ use App\StaticVars;
 use App\Traits\ExecTrait;
 use splitbrain\phpcli\Exception;
 use App\Service\Database;
-use App\Model\Volume;
 use App\Service\MoodleConfig;
 
 class Main extends AbstractService {
@@ -29,6 +28,7 @@ class Main extends AbstractService {
     private ProxyService $proxyService;
     private Database $databaseService;
     private Environment $environmentService;
+    private MoodleConfig $moodleConfigService;
 
     // Models
     private Recipe $recipe;
@@ -408,7 +408,7 @@ class Main extends AbstractService {
             mkdir($assetsPath, 0755, true);
         }
 
-        MoodleConfig::instance()->processConfigFile($recipe);
+        $this->moodleConfigService->processConfigFile($recipe);
 
         if ($recipe->includeXdebug || $recipe->developer) {
             try {
