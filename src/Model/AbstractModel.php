@@ -5,6 +5,7 @@ namespace App\Model;
 use splitbrain\phpcli\Exception;
 
 abstract class AbstractModel {
+    const UNSET = '__UNSET__';
     /**
      * Doesn't do much other than allow you to pass in an object as well as arrays.
      * Equivalent without this helper method would be to do something like:
