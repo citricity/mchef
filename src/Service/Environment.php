@@ -44,4 +44,25 @@ class Environment extends AbstractService {
         }
         return $result;
     }
+
+    /**
+     * Get registry configuration from environment variables
+     */
+    public function getRegistryConfig(): ?array {
+        $url = $this->get('MCHEF_REGISTRY_URL');
+        $username = $this->get('MCHEF_REGISTRY_USERNAME');
+        $password = $this->get('MCHEF_REGISTRY_PASSWORD');
+        $token = $this->get('MCHEF_REGISTRY_TOKEN');
+        
+        if (empty($url) || empty($username) || (empty($password) && empty($token))) {
+            return null;
+        }
+        
+        return [
+            'url' => $url,
+            'username' => $username,
+            'password' => $password ?: null,
+            'token' => $token ?: null
+        ];
+    }
 }

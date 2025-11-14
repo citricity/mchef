@@ -114,7 +114,7 @@ class Mysql extends AbstractDatabase implements DatabaseInterface {
         $mainService   = Main::instance($this->cli);
         $dbContainer   = $mainService->getDockerDatabaseContainerName();
         $recipe        = $this->recipe;
-        $mysqlCommand  = escapeshellarg('mysql -u' . $recipe->dbUser . ' -p' . $recipe->dbPassword . ' -D ' . $recipe->dbName  . ' -e "' . $query . '" > /dev/null 2>&1');
+        $mysqlCommand  = 'mysql -u' . $recipe->dbUser . ' -p' . $recipe->dbPassword . ' -D ' . $recipe->dbName  . ' -e "' . $query . '" > /dev/null 2>&1';
         $dbCommand     = $this->buildExecDockerCommand($dbContainer, $mysqlCommand);
 
         if ($isCheck) {

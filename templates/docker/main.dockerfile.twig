@@ -101,6 +101,10 @@ RUN git clone {{ plugin.repo }} --branch {{ plugin.branch }} --depth 1 $MOODLE_P
 
 COPY assets/config.php $MOODLE_PATH/config.php
 
+{% if copyCustomConfigFile %}
+COPY assets/config-local.php $MOODLE_PATH/config-local.php
+{% endif %}
+
 {% if (includeBehat or developer) %}
 # Install behat config helper.
 RUN git clone https://github.com/andrewnicols/moodle-browser-config.git --branch main --depth 1 $MOODLE_PATH/moodle-browser-config

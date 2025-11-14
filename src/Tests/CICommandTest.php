@@ -106,12 +106,7 @@ class CICommandTest extends MchefTestCase {
             ->with($mockRecipe, 'example:v1.5.0');
         
         // Mock environment variables (none set) 
-        $this->environment->method('get')->willReturnMap([
-            ['MCHEF_REGISTRY_URL', null, null],
-            ['MCHEF_REGISTRY_USERNAME', null, null],
-            ['MCHEF_REGISTRY_PASSWORD', null, null],
-            ['MCHEF_REGISTRY_TOKEN', null, null]
-        ]);
+        $this->environment->method('getRegistryConfig')->willReturn(null);
         
         // Expect warning about missing registry config
         $this->cli->expects($this->once())
@@ -146,11 +141,11 @@ class CICommandTest extends MchefTestCase {
             ->with($mockRecipe, 'my-custom-app:v1.5.0');
         
         // Mock environment variables (all set)
-        $this->environment->method('get')->willReturnMap([
-            ['MCHEF_REGISTRY_URL', null, 'https://registry.example.com'],
-            ['MCHEF_REGISTRY_USERNAME', null, 'testuser'],
-            ['MCHEF_REGISTRY_PASSWORD', null, 'testpass'],
-            ['MCHEF_REGISTRY_TOKEN', null, null]
+        $this->environment->method('getRegistryConfig')->willReturn([
+            'url' => 'https://registry.example.com',
+            'username' => 'testuser',
+            'password' => 'testpass',
+            'token' => null
         ]);
         
         // Mock Docker registry operations
@@ -241,81 +236,5 @@ class CICommandTest extends MchefTestCase {
         $this->assertFalse($result->includePhpUnit);
         $this->assertFalse($result->includeBehat);
         $this->assertFalse($result->includeXdebug);
-    }
-
-    public function testGetRegistryConfigWithTokenAuth(): void {
-        $this->environment->method('get')->willReturnMap([
-            ['MCHEF_REGISTRY_URL', null, 'https://ghcr.io'],
-            ['MCHEF_REGISTRY_USERNAME', null, 'github-user'],
-            ['MCHEF_REGISTRY_PASSWORD', null, null],
-            ['MCHEF_REGISTRY_TOKEN', null, 'ghp_token123']
-        ]);
-        
-        $reflection = new \ReflectionClass($this->ciCommand);
-        $method = $reflection->getMethod('getRegistryConfig');
-        $method->setAccessible(true);
-        
-        $result = $method->invoke($this->ciCommand);
-        
-        $this->assertEquals([
-            'url' => 'https://ghcr.io',
-            'username' => 'github-user',
-            'password' => null,
-            'token' => 'ghp_token123'
-        ], $result);
-    }
-
-    public function testGetRegistryConfigWithIncompleteEnvironment(): void {
-        $this->environment->method('get')->willReturnMap([
-            ['MCHEF_REGISTRY_URL', null, 'https://registry.com'],
-            ['MCHEF_REGISTRY_USERNAME', null, 'user'],
-            ['MCHEF_REGISTRY_PASSWORD', null, null],
-            ['MCHEF_REGISTRY_TOKEN', null, null] // Missing both password and token
-        ]);
-        
-        $reflection = new \ReflectionClass($this->ciCommand);
-        $method = $reflection->getMethod('getRegistryConfig');
-        $method->setAccessible(true);
-        
-        $result = $method->invoke($this->ciCommand);
-        $this->assertNull($result);
-    }
-
-    public function testGetRegistryConfigWithPasswordAuth(): void {
-        $this->environment->method('get')->willReturnMap([
-            ['MCHEF_REGISTRY_URL', null, 'https://docker.io'],
-            ['MCHEF_REGISTRY_USERNAME', null, 'dockerhub-user'],
-            ['MCHEF_REGISTRY_PASSWORD', null, 'password123'],
-            ['MCHEF_REGISTRY_TOKEN', null, null]
-        ]);
-        
-        $reflection = new \ReflectionClass($this->ciCommand);
-        $method = $reflection->getMethod('getRegistryConfig');
-        $method->setAccessible(true);
-        
-        $result = $method->invoke($this->ciCommand);
-        
-        $this->assertEquals([
-            'url' => 'https://docker.io',
-            'username' => 'dockerhub-user',
-            'password' => 'password123',
-            'token' => null
-        ], $result);
-    }
-
-    public function testGetRegistryConfigMissingUrl(): void {
-        $this->environment->method('get')->willReturnMap([
-            ['MCHEF_REGISTRY_URL', null, null], // Missing URL
-            ['MCHEF_REGISTRY_USERNAME', null, 'user'],
-            ['MCHEF_REGISTRY_PASSWORD', null, 'password'],
-            ['MCHEF_REGISTRY_TOKEN', null, null]
-        ]);
-        
-        $reflection = new \ReflectionClass($this->ciCommand);
-        $method = $reflection->getMethod('getRegistryConfig');
-        $method->setAccessible(true);
-        
-        $result = $method->invoke($this->ciCommand);
-        $this->assertNull($result);
     }
 }

@@ -195,7 +195,15 @@ class Recipe extends AbstractModel {
 
         public ?string $behatWwwRoot = null,
 
-        public ?string $lang = null
+        public ?string $lang = null,
+
+        public ?string $configFile = null,
+
+        public $config = null,
+
+        public ?string $customConfigFile = null,
+
+        public bool $copyCustomConfigFile = false,
 
     ) {}
 }

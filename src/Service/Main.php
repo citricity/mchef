@@ -11,6 +11,7 @@ use App\StaticVars;
 use App\Traits\ExecTrait;
 use splitbrain\phpcli\Exception;
 use App\Service\Database;
+use App\Service\MoodleConfig;
 
 class Main extends AbstractService {
 
@@ -24,6 +25,8 @@ class Main extends AbstractService {
     private RecipeService $recipeService;
     private ProxyService $proxyService;
     private Database $databaseService;
+    private Environment $environmentService;
+    private MoodleConfig $moodleConfigService;
 
     // Models
     private Recipe $recipe;
@@ -31,7 +34,7 @@ class Main extends AbstractService {
     private DockerData $dockerData;
 
     // Other properties
-    private \Twig\Environment $twig;
+    public \Twig\Environment $twig;
     private ?string $chefPath = null;
 
     protected function __construct() {
@@ -41,6 +44,14 @@ class Main extends AbstractService {
         $loader->addPath(__DIR__.'/../../templates/docker', 'docker');
         $this->twig = new \Twig\Environment($loader);
         parent::__construct();
+    }
+
+    public function getTwig(): \Twig\Environment {
+        return $this->twig;
+    }
+
+    public function getDockerData(): DockerData {
+        return $this->dockerData;
     }
 
     final public static function instance(): Main {
@@ -248,6 +259,7 @@ class Main extends AbstractService {
                     $dbnotready = false;
                 }
                 $this->cli->notice('Waiting for DB '.$dbContainer.' to be ready');
+                $this->cli->notice('Command :' . $dbCheckCmd);
                 sleep(1);
             }
             $this->cli->notice('DB '.$dbContainer.' ready!');
@@ -385,34 +397,14 @@ class Main extends AbstractService {
         return $recipe;
     }
 
-    private function populateAssets(Recipe $recipe) {
+    private function populateAssets(Recipe &$recipe) {
         $assetsPath = $this->getAssetsPath();
         if (!file_exists($assetsPath)) {
             $this->cli->info('Creating docker assets path '.$assetsPath);
             mkdir($assetsPath, 0755, true);
         }
 
-        // Create moodle config asset.
-        try {
-            $moodleConfigContents = $this->twig->render('@moodle/config.php.twig', (array) $recipe);
-        } catch (\Exception $e) {
-            throw new Exception('Failed to parse config.php template: '.$e->getMessage());
-        }
-        file_put_contents($assetsPath.'/config.php', $moodleConfigContents);
-
-        if ($recipe->includeBehat || $recipe->developer) {
-            try {
-                // Create moodle-browser-config config.
-                $browserConfigContents = $this->twig->render('@moodle-browser/config.php.twig', (array) $recipe);
-            } catch (\Exception $e) {
-                throw new Exception('Failed to parse moodle-browser config.php template: '.$e->getMessage());
-            }
-        }
-        $browserConfigAssetsPath = $assetsPath.'/moodle-browser-config';
-        if (!file_exists($browserConfigAssetsPath)) {
-            mkdir($browserConfigAssetsPath, 0755, true);
-        }
-        file_put_contents($browserConfigAssetsPath.'/config.php', $browserConfigContents);
+        $this->moodleConfigService->processConfigFile($recipe);
 
         if ($recipe->includeXdebug || $recipe->developer) {
             try {
@@ -437,7 +429,7 @@ class Main extends AbstractService {
         return null;
     }
 
-    private function establishDockerData() {
+    public function establishDockerData() {
         if (!empty($this->dockerData)) {
             return $this->dockerData;
         }
@@ -490,14 +482,11 @@ class Main extends AbstractService {
             }
         }
 
-        $this->pluginInfo = $this->pluginsService->getPluginsInfoFromRecipe($recipe);
-        $volumes = $this->pluginInfo ? $this->pluginInfo->volumes : [];
-        if ($volumes) {
-            $this->cli->info('Volumes will be created for plugins: '.implode("\n", array_map(function($vol) {return $vol->path;}, $volumes)));
-        }
+        // Populate assets first, as in doing so, the recipe may change.
+        $this->populateAssets($recipe);
 
-        $dockerData = new DockerData($volumes, null, ...(array) $recipe);
-        $dockerData->volumes = $volumes;
+        // Build docker data (This loads volumes for plugins and custom config).
+        $dockerData = $this->establishDockerData();
 
         // Add plugin data for dockerfile shallow cloning
         if ($recipe->plugins) {
@@ -591,8 +580,6 @@ class Main extends AbstractService {
         $dockerComposeFileContents = $this->twig->render('@docker/main.compose.yml.twig', (array) $dockerData);
         $ymlPath = $dockerPath.'/main.compose.yml';
         file_put_contents($ymlPath, $dockerComposeFileContents);
-
-        $this->populateAssets($recipe);
 
         // If containers are already running then we need to stop them to re-implement recipe.
         $this->stopContainers();
