@@ -2,6 +2,7 @@
 
 namespace App\Command;
 
+use App\Helpers\OS;
 use App\Model\Recipe;
 use App\Service\Project;
 use App\StaticVars;
@@ -28,6 +29,10 @@ class RemoveSrc extends AbstractCommand {
     }
 
     public function execute(Options $options): void {
+        if (OS::isWindows()) {
+            $this->cli->error('This command is not supported on Windows at the moment. Requires testing.');
+            return;
+        }
         $this->cli->promptYesNo(
             "Remove all your moodle source files. Continue?",
             null,
@@ -38,7 +43,7 @@ class RemoveSrc extends AbstractCommand {
         $this->setStaticVarsFromOptions($options);
         $instanceName = StaticVars::$instance->containerPrefix;
 
-        $this->projectService->purgeProjectFolderOfNonPluginCode($instanceName);
+        $this->projectService->purgeMoodleFolderOfNonPluginCode($instanceName);
     }
 
    protected function register(Options $options): void {

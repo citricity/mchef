@@ -91,20 +91,32 @@ class File extends AbstractService {
         }
     }
 
-
-    public function cmdFindAllFilesExcluding(array $files, array $paths): string {
+    public function cmdFindAllFilesExcluding(string $mainPath, array $files, array $paths): string {
         if (!OS::isWindows()) {
-            $files = array_map(fn($file) => ' -not -file ' . OS::escShellArg($file), $files);
-            $paths = array_map(fn($path) => ' -not -path ' . OS::escShellArg($path) . ' -not -path ' . OS::escShellArg($path . DIRECTORY_SEPARATOR . '*'), $paths);
-            return "find . " . implode(' ', $files) . implode(' ', $paths);
+            $files = array_map(function($file) use ($mainPath) {
+                $cleanFile = preg_replace('/^\.\//', '', $file);
+                return ' -not -path ' . OS::escShellArg($mainPath . DIRECTORY_SEPARATOR . $cleanFile);
+            }, $files);
+            $paths = array_map(function($path) use ($mainPath) {
+                $cleanPath = preg_replace('/^\.\//', '', $path);
+                return ' -not -path ' . OS::escShellArg($mainPath . DIRECTORY_SEPARATOR . $cleanPath) . ' -not -path ' . OS::escShellArg($mainPath . DIRECTORY_SEPARATOR . $cleanPath . DIRECTORY_SEPARATOR . '*');
+            }, $paths);
+            return "find " . OS::escShellArg($mainPath) . implode(' ', $files) . implode(' ', $paths);
         }
 
         // PowerShell Alternative for Windows
-        $notFiles = implode(' -and ', array_map(fn($file) => "-not (Get-Item " . OS::escShellArg($file) . ")", $files));
-        $notPaths = implode(' -and ', array_map(fn($path) => "-not (Get-Item " . OS::escShellArg($path) . ") -and -not (Get-Item " . OS::escShellArg($path . '\\*') . ")", $paths));
+        $notFiles = implode(' -and ', array_map(function($file) use ($mainPath) {
+            $cleanFile = preg_replace('/^\.\//', '', $file);
+            return "-not (Get-Item " . OS::escShellArg($mainPath . '\\' . $cleanFile) . ")";
+        }, $files));
+        $notPaths = implode(' -and ', array_map(function($path) use ($mainPath) {
+            $cleanPath = preg_replace('/^\.\//', '', $path);
+            return "-not (Get-Item " . OS::escShellArg($mainPath . '\\' . $cleanPath) . ") -and -not (Get-Item " . OS::escShellArg($mainPath . '\\' . $cleanPath . '\\*') . ")";
+        }, $paths));
 
         return sprintf(
-            'powershell -Command "Get-ChildItem -Path . -Recurse | Where-Object { %s %s }"',
+            'powershell -Command "Get-ChildItem -Path %s -Recurse | Where-Object { %s %s }"',
+            OS::escShellArg($mainPath),
             $notFiles,
             $notPaths
         );
@@ -114,21 +126,27 @@ class File extends AbstractService {
      * Delete all files excluding specific files
      * @param string $path - target path of which to delete files from
      * @param array $files
-     * @param array $paths
+     * @param array $relativePaths - paths relative to $path to exclude
      * @return string
      * @throws ExecFailed
      */
-    public function deleteAllFilesExcluding(string $path, array $files, array $paths): string {
+    public function deleteAllFilesExcluding(string $path, array $files, array $relativePaths): string {
         $this->folderRestrictionCheck($path, 'delete');
 
         if (!OS::isWindows()) {
-            $cmd = $this->cmdFindAllFilesExcluding($files, $paths);
+            $cmd = $this->cmdFindAllFilesExcluding($path, $files, $relativePaths);
             $cmd = "$cmd -delete";
         } else {
             // PowerShell equivalent for Windows
-            $notFiles = implode(' -and ', array_map(fn($file) => "-not (Get-Item '$file')", $files));
-            $notPaths = implode(' -and ', array_map(fn($path) => "-not (Get-Item '$path') -and -not (Get-Item '$path\\*')", $paths));
-
+            $notFiles = implode(' -and ', array_map(function($file) use ($path) {
+                $cleanFile = preg_replace('/^\.\//', '', $file);
+                return "-not (Get-Item " . OS::escShellArg($path . '\\' . $cleanFile) . ")";
+            }, $files));
+            $notPaths = implode(' -and ', array_map(function($relativePath) use ($path) {
+                $cleanPath = preg_replace('/^\.\//', '', $relativePath);
+                return "-not (Get-Item " . OS::escShellArg($path . '\\' . $cleanPath) . ") -and -not (Get-Item " . OS::escShellArg($path . '\\' . $cleanPath . '\\*') . ")";
+            }, $relativePaths));        
+            
             $cmd = sprintf(
                 'powershell -Command "Get-ChildItem -Path %s -Recurse | Where-Object { %s %s } | Remove-Item -Force -Recurse"',
                 OS::escShellArg($path),

@@ -2,9 +2,11 @@
 
 namespace App\Command;
 
+use App\Helpers\OS;
 use App\Model\Recipe;
 use App\Model\RegistryInstance;
 use App\Service\File;
+use App\Service\Moodle;
 use App\Service\Plugins;
 use App\Service\Project;
 use App\StaticVars;
@@ -21,6 +23,7 @@ final class CopySrc extends AbstractCommand {
     private Plugins $pluginsService;
     private Project $projectService;
     private File $fileService;
+    private Moodle $moodleService;
 
     // Constants.
     const COMMAND_NAME = 'copysrc';
@@ -32,9 +35,11 @@ final class CopySrc extends AbstractCommand {
     }
 
     private function copySrc(RegistryInstance $instance): void {
-        $projectDir = dirname($instance->recipePath);
         $this->recipe = $this->mainService->getRecipe($instance->recipePath);
         $moodleContainer = $this->mainService->getDockerMoodleContainerName();
+
+        // Use Moodle service to ensure moodle directory exists and get its path
+        $moodleTargetPath = $this->moodleService->provideMoodleDirectory($this->recipe, $instance->recipePath);
 
         // Create temp directory on guest moodle container.
         $cmd = 'mktemp -d -t XXXXXXXXXX';
@@ -60,26 +65,33 @@ final class CopySrc extends AbstractCommand {
         $this->exec($cmd);
 
         $this->cli->notice('Copying moodle source to project directory');
-        $exec = 'docker cp '.$moodleContainer.':'.$tmpDir.'/moodle/. '.$projectDir;
+        $exec = 'docker cp '.$moodleContainer.':'.$tmpDir.'/moodle/. '.$moodleTargetPath;
         $this->execPassthru($exec);
 
         // Remove temp directory on guest moodle container.
         $cmd = 'rm -rf '.$tmpDir;
         $this->exec('docker exec '.$moodleContainer.' '.$cmd);
 
-        if (file_exists($projectDir.'/lib/weblib.php')) {
+        if (file_exists($moodleTargetPath.'/lib/weblib.php')) {
             $this->cli->success('Finished copying moodle source to project directory');
         }
     }
 
     public function execute(Options $options): void {
+        if (OS::isWindows()) {
+            $this->cli->error('This command is not supported on Windows at the moment. Requires testing.');
+            return;
+        }
         $this->setStaticVarsFromOptions($options);
         $instance = StaticVars::$instance;
         $instanceName = $instance->containerPrefix;
         $projectDir = dirname($instance->recipePath);
+        
+        $recipe = $this->mainService->getRecipe($instance->recipePath);
+        $moodleDirectoryName = $recipe->moodleDirectory ?? 'moodle';
 
         $result = $this->cli->promptYesNo(
-            "Selected instance is $instanceName \nProject directory is $projectDir\nCopying the moodle src into your project directory will wipe everything except your plugin files. Continue?",
+            "Selected instance is $instanceName \nProject directory is $projectDir\nMoodle directory: $moodleDirectoryName/\n\nCopying the moodle src into your moodle directory will wipe everything except your plugin files. Continue?",
             null,
             function() {
                 return false;
@@ -88,19 +100,10 @@ final class CopySrc extends AbstractCommand {
             return;
         }
 
-        $this->projectService->purgeProjectFolderOfNonPluginCode($instanceName);
-        $projectDir = dirname($instance->recipePath);
+        $this->projectService->purgeMoodleFolderOfNonPluginCode($instanceName);
+        $moodleDir = $this->moodleService->getMoodleDirectoryPath($recipe, $instance->recipePath);
 
-        $this->fileService->folderRestrictionCheck($projectDir, 'Copy files to this folder');
-
-        $git = $projectDir.'/.git';
-        if (file_exists($git)) {
-            $this->cli->promptYesNo("Your project folder seems to be a git project.\n".
-                "Proceeding will exclude all core Moodle code by modifying your .gitignore file. Continue?",
-                function() { die('Not implemented yet!'); }
-            );
-            die('Not implemented yet!');
-        }
+        $this->fileService->folderRestrictionCheck($moodleDir, 'Copy files to this folder');
 
         $this->copySrc($instance);
     }

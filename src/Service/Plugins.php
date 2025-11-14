@@ -8,6 +8,7 @@ use App\Model\PluginsInfo;
 use App\Model\Recipe;
 use App\Model\RecipePlugin;
 use App\Model\Volume;
+use App\StaticVars;
 use splitbrain\phpcli\Exception;
 use splitbrain\phpcli\Options;
 
@@ -18,6 +19,8 @@ class Plugins extends AbstractService {
     private Configurator $configuratorService;
     private File $fileService;
     private Docker $dockerService;
+    private Moodle $moodleService;
+    private Git $gitService;
 
     final public static function instance(): Plugins {
         return self::setup_singleton();
@@ -211,6 +214,28 @@ class Plugins extends AbstractService {
     }
 
     /**
+     * Get the target path for a plugin within the moodle directory structure.
+     *
+     * @param Recipe $recipe The recipe configuration
+     * @param string $recipePath Path to the recipe file
+     * @param string $pluginName The plugin name (e.g. mod_customactivity)
+     * @return string The absolute path where the plugin should be placed
+     */
+    private function getPluginTargetPath(Recipe $recipe, string $recipePath, string $pluginName): string {
+        // Get the moodle directory path (creates it if needed)
+        $moodleDir = $this->moodleService->provideMoodleDirectory($recipe, $recipePath);
+        
+        // Get the relative plugin path within moodle
+        $pluginPath = $this->getMoodlePluginPath($pluginName);
+        
+        // Combine moodle directory with plugin path
+        $ds = DIRECTORY_SEPARATOR;
+        $targetPath = str_replace("{$ds}{$ds}", $ds, OS::path($moodleDir . $pluginPath));
+        
+        return $targetPath;
+    }
+
+    /**
      * Clone a git repository.
      *
      * @param string $url
@@ -224,16 +249,10 @@ class Plugins extends AbstractService {
         if (empty($branch)) {
             $cmd = "git clone $url $path";
         } else {
-            // First check if the branch exists on the remote repository
-            $checkBranchCmd = "git ls-remote --heads $url $branch";
-            exec($checkBranchCmd, $branchOutput, $branchReturnVar);
-
-            if ($branchReturnVar != 0) {
-                throw new Exception("Error checking remote repository: " . implode("\n", $branchOutput));
-            }
+            $branchOrTagExists = $this->gitService->branchOrTagExistsRemotely($url, $branch);
 
             // If no output, the branch doesn't exist
-            if (empty($branchOutput)) {
+            if (!$branchOrTagExists) {
                 throw new Exception("Branch '$branch' does not exist for repository '$url'");
             }
 
@@ -293,6 +312,16 @@ class Plugins extends AbstractService {
         return null;
     }
 
+    private function recipePluginToString(RecipePlugin $plugin): string {
+        $str = '';
+        try {
+            $str = json_encode($plugin, JSON_THROW_ON_ERROR);
+        } catch (\JsonException $e) {
+            $str = uniqid();
+        }
+        return $str;
+    }
+
     /**
      * Check if the plugins info is in sync with the recipe.
      *
@@ -311,7 +340,7 @@ class Plugins extends AbstractService {
 
                 $recipePlugin = $this->extractRepoInfoFromPlugin($plugin->recipeSrc);
 
-                return $recipePlugin->repo;
+                return $this->recipePluginToString($recipePlugin);
 
          }, $pluginsInfo->plugins);
 
@@ -322,7 +351,7 @@ class Plugins extends AbstractService {
 
                     $recipePlugin = $this->extractRepoInfoFromPlugin($plugin);
 
-                    return $recipePlugin->repo;
+                    return $this->recipePluginToString($recipePlugin);
 
                 }, $recipe->plugins);
         }
@@ -337,7 +366,7 @@ class Plugins extends AbstractService {
      *
      * @return PluginsInfo|null
      */
-    public function getPluginsInfoFromRecipe(Recipe $recipe): ?PluginsInfo {
+    public function getPluginsInfoFromRecipe(Recipe $recipe, bool $skipCache = false): ?PluginsInfo {
         // Show deprecation warning for cloneRepoPlugins
         if ($recipe->cloneRepoPlugins !== null) {
             $this->cli->warning('RECIPE WARNING: cloneRepoPlugins is deprecated. Use mountPlugins instead.');
@@ -347,10 +376,11 @@ class Plugins extends AbstractService {
             }
         }
 
+        $noCache = $skipCache || StaticVars::$noCache ?? false;
         $mcPluginsInfo = $this->loadMchefPluginsInfo();
-        if ($mcPluginsInfo && $this->checkPluginsInfoInSync($recipe, $mcPluginsInfo)) {
-            // @TODO - we need a cli argument to prevent caching - e.g. --no-cache
-            // if no-cache is passed we need it to skip this code
+        if ($noCache) {
+            $this->cli->info('Skipping cached plugins info');
+        } else if ($mcPluginsInfo && $this->checkPluginsInfoInSync($recipe, $mcPluginsInfo)) {
             $this->cli->info('Using cached plugins info');
             return $mcPluginsInfo;
         }
@@ -379,9 +409,9 @@ class Plugins extends AbstractService {
                         if (file_exists(OS::path($tmpDir.'/version.php'))) {
                             $pluginName = $this->getPluginComponentFromVersionFile($tmpDir.'/version.php');
                             $pluginPath = $this->getMoodlePluginPath($pluginName);
-                            $ds = DIRECTORY_SEPARATOR;
-                            // Strip out accidental double dir separators from path.
-                            $targetPath = str_replace("{$ds}{$ds}", $ds, OS::path(dirname($recipePath).$ds.$pluginPath));
+                            
+                            // Use the new moodle directory structure
+                            $targetPath = $this->getPluginTargetPath($recipe, $recipePath, $pluginName);
                             if (!file_exists(OS::path($targetPath.'/version.php'))) {
                                 $this->cli->info('Moving plugin from temp folder to ' . $targetPath);
                                 if (!file_exists($targetPath) && !OS::isWindows()) {

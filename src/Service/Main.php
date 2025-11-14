@@ -666,6 +666,8 @@ class Main extends AbstractService {
         $dockerData->volumes = [];
 
         // Add plugin data for dockerfile shallow cloning (if not disabled)
+        // TODO - note that CI is going to require some way to clone these repos via ssh in some cases.
+        // We will need to add a SSH_KEY github env variable.
         if ($recipe->plugins && !$recipe->cloneRepoPlugins) {
             $pluginsForDocker = [];
             foreach ($recipe->plugins as $plugin) {

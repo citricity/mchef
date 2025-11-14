@@ -8,7 +8,8 @@ use PHPUnit\Framework\MockObject\MockObject;
 
 class StaticVars {
     /** @var MChefCLI|null */
-    static MChefCLI|MockObject $cli;
-    static ?RegistryInstance $instance;
-    static ?Recipe $recipe;
+    static null|MChefCLI|MockObject $cli = null;
+    static ?RegistryInstance $instance = null;
+    static ?Recipe $recipe = null;
+    static ?bool $noCache = false;
 }
