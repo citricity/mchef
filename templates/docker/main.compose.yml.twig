@@ -19,6 +19,12 @@ services:
     build:
       context: .
       dockerfile: {{ dockerFile }}
+      {% if (reposUseSsh) %}
+
+      ssh:
+        - default
+      {% endif %}
+
     environment:
       DB_USER: *db-user
       DB_PASS: *db-pass

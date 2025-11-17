@@ -126,7 +126,15 @@ class Postgres extends AbstractDatabase implements DatabaseInterface {
         $mainService = Main::instance($this->cli);
         $dbContainer = $mainService->getDockerDatabaseContainerName();
         $recipe      = $this->recipe;
-        $pgCommand   = escapeshellarg('psql -U ' . $recipe->dbUser . ' -d ' . $recipe->dbName . ' -c "' . $query . '" > /dev/null 2>&1');
+        $pgCommand = sprintf(
+            'sh -c %s',
+            escapeshellarg(sprintf(
+                'psql -U %s -d %s -c %s > /dev/null 2>&1',
+                escapeshellarg($recipe->dbUser),
+                escapeshellarg($recipe->dbName),
+                escapeshellarg($query)
+            ))
+        );
         $dbCommand   = $this->buildExecDockerCommand($dbContainer, $pgCommand);
 
         if ($isCheck) {

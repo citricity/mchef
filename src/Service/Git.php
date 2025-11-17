@@ -316,6 +316,10 @@ class Git extends AbstractService {
         return array_map('trim', $output);
     }
 
+    public function isRemoteSsh(string $repositoryPath): bool {
+        return preg_match('/^(git@|ssh:\/\/)/', $repositoryPath) === 1;
+    }
+
     /**
      * Get list of available remote branches.
      *

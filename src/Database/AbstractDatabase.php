@@ -2,6 +2,7 @@
 
 namespace App\Database;
 
+use App\Exceptions\NotImplementedException;
 use App\MChefCLI;
 use App\Model\Recipe;
 use App\Helpers\OS;

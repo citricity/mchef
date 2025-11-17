@@ -21,6 +21,7 @@ class Main extends AbstractService {
     private Plugins $pluginsService;
     private Configurator $configuratorService;
     private File $fileService;
+    private Git $gitService;
     private RecipeService $recipeService;
     private ProxyService $proxyService;
     private Database $databaseService;
@@ -150,7 +151,8 @@ class Main extends AbstractService {
         $this->cli->notice('Created docker compose file at '.$ymlPath);
 
         // Compose the command
-        $cmd = "docker compose --project-directory \"{$this->getChefPath()}/docker\" -f \"$ymlPath\" up -d --force-recreate --build";
+        $dockerBuildKit = $dockerData->reposUseSsh ? 'DOCKER_BUILDKIT=1 ' : '';
+        $cmd = "{$dockerBuildKit}docker compose --project-directory \"{$this->getChefPath()}/docker\" -f \"$ymlPath\" up -d --force-recreate --build";
         $this->execPassthru($cmd, "Error starting docker containers - try pruning with 'docker builder prune' OR 'docker system prune' (note 'docker system prune' will destroy all non running container images)");
 
         // @Todo - Add code here to check docker ps for expected running containers.
@@ -242,6 +244,7 @@ class Main extends AbstractService {
 
             $dbnotready = true;
             $dbCheckCmd = $database->buildDBQueryDockerCommand('SELECT 1');
+
             while ($dbnotready) {
                 exec($dbCheckCmd, $output, $returnVar);
                 if ($returnVar === 0) {
@@ -449,6 +452,7 @@ class Main extends AbstractService {
 
         $dockerData = new DockerData($volumes, null, ...(array) $this->recipe);
         $dockerData->volumes = $volumes;
+        $dockerData->reposUseSsh = $this->pluginsReposUseSsh($this->recipe);
         $this->dockerData = $dockerData;
         return $this->dockerData;
     }
@@ -498,6 +502,7 @@ class Main extends AbstractService {
 
         $dockerData = new DockerData($volumes, null, ...(array) $recipe);
         $dockerData->volumes = $volumes;
+        $dockerData->reposUseSsh = $this->pluginsReposUseSsh($recipe);
 
         // Add plugin data for dockerfile shallow cloning
         if ($recipe->plugins) {
@@ -654,6 +659,20 @@ class Main extends AbstractService {
         return $this->getDockerContainerName('db', $instanceName, $recipe);
     }
 
+    private function pluginsReposUseSsh(Recipe $recipe): bool {
+        $hasSsh = false;
+        if ($recipe->plugins) {
+            foreach ($recipe->plugins as $plugin) {
+                $recipePlugin = $this->pluginsService->extractRepoInfoFromPlugin($plugin);
+                if ($this->gitService->isRemoteSsh($recipePlugin->repo)) {
+                    $hasSsh = true;
+                    break;
+                }
+            }
+        }
+        return $hasSsh;
+    }
+
     /**
      * Prepare Docker data for CI builds (production settings, no volumes).
      *
@@ -684,6 +703,7 @@ class Main extends AbstractService {
                 }
             }
             $dockerData->pluginsForDocker = $pluginsForDocker;
+            $dockerData->reposUseSsh = $this->pluginsReposUseSsh($recipe);
         }
 
         return $dockerData;

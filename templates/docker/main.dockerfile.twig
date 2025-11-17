@@ -95,7 +95,13 @@ RUN git clone https://github.com/moodle/moodle.git --branch $MOODLE_TAG --depth 
 # Clone plugins using shallow clones
 {% if pluginsForDocker %}
 {% for plugin in pluginsForDocker %}
-RUN git clone {{ plugin.repo }} --branch {{ plugin.branch }} --depth 1 $MOODLE_PATH{{ plugin.path }}
+
+{% if reposUseSsh %}
+RUN apt-get install --no-install-recommends -y git openssh-client
+RUN mkdir -p -m 0700 ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
+{% endif %}
+
+RUN{% if reposUseSsh %} --mount=type=ssh {% endif %} git clone {{ plugin.repo }} --branch {{ plugin.branch }} --depth 1 $MOODLE_PATH{{ plugin.path }}
 {% endfor %}
 {% endif %}
 
