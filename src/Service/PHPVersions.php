@@ -51,14 +51,18 @@ class PHPVersions extends AbstractService {
         }
 
         // Loop through the branches and extract the PHP version from the branch name
-        $phpVersions = [];
-        foreach ($branches as $branch) {
-            $branchName = $branch['name'];
-            preg_match('/(\d+\.\d+)(?:-)/', $branchName, $matches);
-            if (!empty($matches[1])) {
-                $phpVersion = $matches[1];
-                $phpVersions[] = $phpVersion;
+        try {
+            $phpVersions = [];
+            foreach ($branches as $branch) {
+                $branchName = $branch['name'];
+                preg_match('/(\d+\.\d+)(?:-)/', $branchName, $matches);
+                if (!empty($matches[1])) {
+                    $phpVersion = $matches[1];
+                    $phpVersions[] = $phpVersion;
+                }
             }
+        } catch (\Exception $e) {
+            return $hardCodedVersions;
         }
 
         return array_unique($phpVersions);
