@@ -24,6 +24,7 @@ class RecipeService extends AbstractService {
         $contents = file_get_contents($filePath);
 
         try {
+            /** @var Recipe $recipe */
             $recipe = $this->deserializerService->deserialize($contents, Recipe::class);
         } catch (\Exception $e) {
             throw new Exception('Failed to decode recipe JSON. Recipe: '.$filePath, 0, $e);
