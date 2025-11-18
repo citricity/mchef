@@ -12,7 +12,7 @@ $CFG->dbhost    = getenv('DB_HOST');
 $CFG->dbname    = getenv('DB_NAME');
 $CFG->dbuser    = getenv('DB_USER');
 $CFG->dbpass    = getenv('DB_PASS');
-$CFG->prefix    = 'mdl_'; // Hardcoded for now
+$CFG->prefix    = '{{config.prefix}}';
 
 if ($CFG->dbtype === 'mysqli') {
     $CFG->dblibrary = 'native';
@@ -28,9 +28,9 @@ if ($CFG->dbtype === 'mysqli') {
 
 $CFG->wwwroot   = getenv('WWWROOT');
 $CFG->dataroot  = getenv('MOODLE_DATA');
-$CFG->admin     = 'admin';
+$CFG->admin     = '{{config.admin}}';
 
-$CFG->directorypermissions = 0777;
+$CFG->directorypermissions = {{config.directorypermissions}};
 
 {% if (includePhpUnit) %}
 $CFG->phpunit_dataroot = getenv('MOODLE_DATA').'/moodle-phpunit';
@@ -76,6 +76,19 @@ $CFG->behat_profiles['host-chrome'] = [
 ];
 
 {% endif %}
+
+{% if (config.lang != UNSET) %}
+$CFG->lang = '{{config.lang}}';
+{% endif %}
+
+{% if (config.timezone != UNSET) %}
+date_default_timezone_set('{{config.timezone}}');
+{% endif %}
+
+{% if (config.defaultblocks != UNSET) %}
+$CFG->defaultblocks = '{{config.defaultblocks}}';
+{% endif %}
+
 
 {% if (customConfigFile) %}
 // Custom config file.

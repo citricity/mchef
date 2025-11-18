@@ -5,10 +5,11 @@ namespace App\Service;
 use App\Helpers\OS;
 use App\Model\Recipe;
 use App\Model\Volume;
+use App\Model\MoodleConfig as MoodleConfigModel;
 use App\Service\Main;
 use App\Service\Environment;
 use App\Service\RecipeService;
-use App\Service\DockerService;
+use App\Service\Docker;
 
 class MoodleConfig extends AbstractService {
 
@@ -16,7 +17,7 @@ class MoodleConfig extends AbstractService {
     private RecipeService $recipeService;
     private Environment $environmentService;
     private Main $mainService;
-    private DockerService $dockerService;
+    private Docker $dockerService;
 
     protected function __construct() {
         parent::__construct();
@@ -47,9 +48,6 @@ class MoodleConfig extends AbstractService {
                 $this->copyCustomConfigFile($recipe);
                 $recipe->copyCustomConfigFile = true;
             }
-        } else if (!empty($recipe->config)) {
-            $this->buildCustomConfigFileFromConfig($recipe);
-            $recipe->copyCustomConfigFile = true;
         }
 
         $this->processTwigConfigFile($recipe);
@@ -82,60 +80,6 @@ class MoodleConfig extends AbstractService {
 
         $this->mainService->getDockerData()->volumes[] = $volume;
         $recipe->customConfigFile = $customConfigPath;
-    }
-
-    private function buildCustomConfigFileFromConfig(Recipe &$recipe) {
-        $config = (array)$recipe->config;
-        $cfgLines = [];
-        $cfgLines[] = '<?php';
-
-        $addToLines = function($key, $value, $parent = "\$CFG", $parentIsObject = true) use (&$cfgLines, &$addToLines) {
-            $identifier = $parentIsObject ? "{$parent}->{$key}" : "{$parent}[$key]";
-            // Convert the PHP value to appropriate PHP code
-            if (is_array($value) || is_object($value)) {
-                // Recursively handle arrays/objects as nested objects/arrays in the config
-                $isAssoc = false;
-                if (is_array($value)) {
-                    $isAssoc = (bool)count(array_filter(array_keys($value), 'is_string'));
-                }
-                if ($isAssoc) {
-                    $cfgLines[] = "{$identifier} = [];";
-
-                    foreach ($value as $k => $v) {
-                        $addToLines("'$k'", $v, $identifier, false);
-                    }
-                } else {
-                    // Treat as numeric array
-                    $arrVals = [];
-                    foreach ($value as $v) {
-                        $arrVals[] = var_export($v, true);
-                    }
-                    $cfgLines[] = "{$identifier} = [" . implode(", ", $arrVals) . "];";
-                }
-            } else {
-                // Scalar value (string, int, bool, null)
-                if (is_string($value)) {
-                    $val = var_export($value, true);
-                } else if (is_bool($value)) {
-                    $val = $value ? 'true' : 'false';
-                } else if (is_null($value)) {
-                    $val = 'null';
-                } else {
-                    $val = var_export($value, true);
-                }
-                $cfgLines[] = "{$identifier} = {$val};";
-            }
-        };
-
-        foreach ($config as $key => $value) {
-            $addToLines($key, $value);
-        }
-
-        $assetsPath = $this->mainService->getAssetsPath();
-        $customConfigPath = $assetsPath . '/config-local.php';
-        $this->cli->notice('Adding custom config file to: ' . $customConfigPath);
-        file_put_contents($customConfigPath, implode(PHP_EOL, $cfgLines));
-        $recipe->customConfigFile = '/var/www/html/moodle/config-local.php';
     }
 
     private function processTwigConfigFile(Recipe $recipe): void {

@@ -46,64 +46,6 @@ class MoodleConfigServiceTest extends MchefTestCase
         rmdir($dir);
     }
 
-    public function testBuildCustomConfigFileFromConfigCreatesFileAndSetsRecipeCustomConfigFile(): void
-    {
-        $moodleConfig = MoodleConfig::instance();
-
-        $assetsPath = sys_get_temp_dir().'/mchef_assets_'.uniqid();
-        mkdir($assetsPath, 0755, true);
-
-        // Mock Main service with getAssetsPath only and provide a twig environment for later calls
-        // Use a real Main instance so Twig namespaces and methods are available
-        $realMain = Main::instance();
-        $chefBase = sys_get_temp_dir().'/mchef_chef_'.uniqid();
-        // Set chefPath so Main::getAssetsPath() will resolve under our temp dir
-        $this->setRestrictedProperty($realMain, 'chefPath', $chefBase);
-        if (!is_dir($chefBase.'/docker/assets')) {
-            mkdir($chefBase.'/docker/assets', 0755, true);
-        }
-        // Inject the real main service configured for this test
-        $this->applyMockedServices(
-            [
-                'mainService' => $realMain,
-            ],
-            $moodleConfig
-        );
-
-        $recipe = new Recipe('v4.5.0', '8.0');
-        $recipe->config = [
-            'dataroot' => '/tmp/moodledata',
-            'admin' => ['email' => 'admin@example.com'],
-            'flags' => [1, 2, 3]
-        ];
-        // Ensure browser template is rendered to avoid undefined variable later
-        $recipe->includeBehat = true;
-
-        // Call the public entry point which will invoke the builder
-        $moodleConfig->processConfigFile($recipe);
-
-        $expectedPath = $realMain->getAssetsPath().'/config-local.php';
-        $this->assertFileExists($expectedPath);
-        $contents = file_get_contents($expectedPath);
-        $this->assertStringContainsString("\$CFG->dataroot = '/tmp/moodledata';", $contents);
-        $this->assertStringContainsString("\$CFG->admin = [];", $contents);
-        $this->assertStringContainsString("\$CFG->admin['email'] = 'admin@example.com';", $contents);
-        $this->assertStringContainsString("\$CFG->flags = [1, 2, 3];", $contents);
-
-        $this->assertEquals('/var/www/html/moodle/config-local.php', $recipe->customConfigFile);
-
-        // Cleanup
-        $assetsPathReal = $realMain->getAssetsPath();
-        $this->removeDirectoryRecursive($assetsPathReal);
-        $chefDir = dirname($assetsPathReal);
-        if (is_dir($chefDir)) {
-            rmdir($chefDir);
-        }
-        if (is_dir($chefBase)) {
-            rmdir($chefBase);
-        }
-    }
-
     public function testProcessConfigFileCopiesCustomConfigFileWhenRegistryPresent(): void
     {
         $moodleConfig = MoodleConfig::instance();
