@@ -158,21 +158,26 @@ class File extends AbstractService {
         return $this->exec($cmd);
     }
 
-
-    public function deleteDir($path) {
-        if (empty($path)) {
-            return false;
+    /**
+     * Recursively remove a directory and all its contents.
+     *
+     * @param string $dir
+     */
+    public function deleteDir(string $dir): void {
+        if (!is_dir($dir)) {
+            return;
         }
-
-        if (is_file($path)) {
-            return @unlink($path);
+        
+        $files = array_diff(scandir($dir), ['.', '..']);
+        foreach ($files as $file) {
+            $path = $dir . DIRECTORY_SEPARATOR . $file;
+            if (is_dir($path)) {
+                $this->deleteDir($path);
+            } else {
+                unlink($path);
+            }
         }
-
-        foreach (glob(OS::path("$path/*")) as $file) {
-            $this->deleteDir($file);
-        }
-
-        return @rmdir($path);
+        rmdir($dir);
     }
 
 

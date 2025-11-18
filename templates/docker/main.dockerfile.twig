@@ -14,7 +14,8 @@ ENV DEBUG={{ debug ?? false }}
 ENV HOST="{{ host }}"
 ENV WWWROOT="{{ wwwRoot }}"
 ENV PORT={{ port }}
-ENV MOODLE_PATH='/var/www/html/moodle'
+ENV MOODLE_PATH="{{ moodlePath }}"
+ENV PUBLIC_PATH={{usePublicPath ? "#{moodlePath}/public" : moodlePath }}
 ENV MOODLE_TAG={{ moodleTag ?? 'v4.0.1' }}
 ENV MOODLE_DATA={{ moodleData ?? '/var/www/moodledata' }}
 {% if (includeBehat) %}
@@ -45,11 +46,11 @@ RUN \
 {% if (host) %}
         echo "  ServerName $HOST"; \
 {% endif %}
-        echo "	DocumentRoot $MOODLE_PATH"; \
+        echo "	DocumentRoot $PUBLIC_PATH"; \
         echo "  ErrorLog \${APACHE_LOG_DIR}/error.log"; \
         echo "  CustomLog \${APACHE_LOG_DIR}/access.log combined"; \
         echo "	# Prevent access to vendor directory."; \
-        echo "	<Directory $MOODLE_PATH/vendor>"; \
+        echo "	<Directory $PUBLIC_PATH/vendor>"; \
         echo "		Require all denied"; \
         echo "	</Directory>"; \
         echo "</VirtualHost>"; \
@@ -67,9 +68,9 @@ RUN \
 	{ \
 		echo "<VirtualHost *:$PORT>"; \
 		echo "  ServerName $BEHAT_HOST"; \
-		echo "	DocumentRoot $MOODLE_PATH"; \
+		echo "	DocumentRoot $PUBLIC_PATH"; \
         echo "	# Prevent access to vendor directory."; \
-		echo "	<Directory $MOODLE_PATH/vendor>"; \
+		echo "	<Directory $PUBLIC_PATH/vendor>"; \
 		echo "		Require all denied"; \
 		echo "	</Directory>"; \
 		echo "	ErrorLog \${APACHE_LOG_DIR}/behat_error.log"; \

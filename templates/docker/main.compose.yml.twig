@@ -44,7 +44,7 @@ services:
       - './_behat_dump:/var/www/html/moodle/behat_dump:delegated'
 {% endif %}
 {% for volume in volumes %}
-      - "{{ volume.hostPath }}:/var/www/html/moodle{{ volume.path }}"
+      - "{{ volume.hostPath }}:{{moodlePath}}{{ volume.path }}"
 {% endfor %}
   db:
     container_name: *db-container-name

@@ -22,6 +22,7 @@ class Main extends AbstractService {
     private Configurator $configuratorService;
     private File $fileService;
     private Git $gitService;
+    private Moodle $moodleService;
     private RecipeService $recipeService;
     private ProxyService $proxyService;
     private Database $databaseService;
@@ -127,7 +128,7 @@ class Main extends AbstractService {
 
         // Remove plugin volumes (could be cached in plugins) if recipe does not want them.
         if (empty($this->recipe->mountPlugins)) {
-            $plugins = $this->pluginsService->getPluginsInfoFromRecipe($this->recipe);
+            $plugins = $this->pluginsService->getPluginsInfoFromRecipe($this->recipe, StaticVars::$noCache);
 
             $pluginPaths = [];
             foreach ($plugins->volumes as $pluginVolume) {
@@ -274,8 +275,8 @@ class Main extends AbstractService {
                 // Bash-safe escaping: wrap in single quotes and escape any single quotes inside
                 $adminPassword = "'" . str_replace("'", "'\\''", $adminPasswordRaw) . "'";
 
-                $installoptions =
-                    '/var/www/html/moodle/admin/cli/install_database.php --lang=' . $lang . ' --adminpass=' . $adminPassword . ' --adminemail=admin@example.com --agree-license --fullname=mchef-MOODLE --shortname=mchefMOODLE';
+                $moodlePath = $this->moodleService->getDockerMoodlePath($recipe);   
+                $installoptions = $moodlePath . '/admin/cli/install_database.php --lang=' . $lang . ' --adminpass=' . $adminPassword . ' --adminemail=admin@example.com --agree-license --fullname=mchef-MOODLE --shortname=mchefMOODLE';
                 $cmdinstall = 'docker exec ' . $moodleContainer . ' php ' . $installoptions;
 
                 // Try to install
@@ -450,7 +451,9 @@ class Main extends AbstractService {
             $this->cli->info('Volumes will be created for plugins: '.implode("\n", array_map(function($vol) {return $vol->path;}, $volumes)));
         }
 
-        $dockerData = new DockerData($volumes, null, ...(array) $this->recipe);
+        $moodlePath = $this->moodleService->getDockerMoodlePath($this->recipe);
+        $usePublic = $this->moodleService->shouldUsePublicFolder($this->recipe);
+        $dockerData = new DockerData($volumes, $moodlePath, $usePublic, null, ...(array) $this->recipe);
         $dockerData->volumes = $volumes;
         $dockerData->reposUseSsh = $this->pluginsReposUseSsh($this->recipe);
         $this->dockerData = $dockerData;
@@ -500,7 +503,9 @@ class Main extends AbstractService {
             $this->cli->info('Volumes will be created for plugins: '.implode("\n", array_map(function($vol) {return $vol->path;}, $volumes)));
         }
 
-        $dockerData = new DockerData($volumes, null, ...(array) $recipe);
+        $moodlePath = $this->moodleService->getDockerMoodlePath($this->recipe);
+        $usePublic = $this->moodleService->shouldUsePublicFolder($this->recipe);
+        $dockerData = new DockerData($volumes, $moodlePath, $usePublic, null, ...(array) $recipe);
         $dockerData->volumes = $volumes;
         $dockerData->reposUseSsh = $this->pluginsReposUseSsh($recipe);
 
@@ -681,7 +686,9 @@ class Main extends AbstractService {
      */
     private function prepareDockerDataForCI(Recipe $recipe): DockerData {
         // Create docker data with no volumes (CI build)
-        $dockerData = new DockerData([], null, ...(array) $recipe);
+        $moodlePath = $this->moodleService->getDockerMoodlePath($this->recipe);
+        $usePublic = $this->moodleService->shouldUsePublicFolder($this->recipe);
+        $dockerData = new DockerData([], $moodlePath, $usePublic, null, ...(array) $recipe);
         $dockerData->volumes = [];
 
         // Add plugin data for dockerfile shallow cloning (if not disabled)

@@ -26,7 +26,7 @@ class Plugins extends AbstractService {
         return self::setup_singleton();
     }
 
-    private function getMoodlePluginPath($pluginName): string {
+    private function getBaseMoodlePluginPath(string $pluginName): string {
         $path = '';
         $parts = explode('_', $pluginName);
         $type = array_shift($parts);
@@ -210,7 +210,13 @@ class Plugins extends AbstractService {
         if (empty($path)) {
             throw new Exception('Unsupported plugin: '.$pluginName);
         }
+        
         return $path;
+    }
+
+    private function getMoodlePluginPath(string $pluginName, Recipe $recipe): string {
+        $publicFolder = $this->moodleService->shouldUsePublicFolder($recipe) ? DIRECTORY_SEPARATOR . 'public' : '';
+        return $publicFolder . $this->getBaseMoodlePluginPath($pluginName);
     }
 
     /**
@@ -224,69 +230,15 @@ class Plugins extends AbstractService {
     private function getPluginTargetPath(Recipe $recipe, string $recipePath, string $pluginName): string {
         // Get the moodle directory path (creates it if needed)
         $moodleDir = $this->moodleService->provideMoodleDirectory($recipe, $recipePath);
-        
-        // Get the relative plugin path within moodle
-        $pluginPath = $this->getMoodlePluginPath($pluginName);
-        
+                        
+        // Get the relative plugin path
+        $pluginPath = $this->getMoodlePluginPath($pluginName, $recipe);        
+
         // Combine moodle directory with plugin path
         $ds = DIRECTORY_SEPARATOR;
         $targetPath = str_replace("{$ds}{$ds}", $ds, OS::path($moodleDir . $pluginPath));
         
         return $targetPath;
-    }
-
-    /**
-     * Clone a git repository.
-     *
-     * @param string $url
-     * @param string $branch
-     * @param string $path
-     * @param string|null $upstream
-     * @throws Exception
-     */
-    private function cloneGithubRepository($url, $branch, $path, ?string $upstream = null) {
-
-        if (empty($branch)) {
-            $cmd = "git clone $url $path";
-        } else {
-            $branchOrTagExists = $this->gitService->branchOrTagExistsRemotely($url, $branch);
-
-            // If no output, the branch doesn't exist
-            if (!$branchOrTagExists) {
-                throw new Exception("Branch '$branch' does not exist for repository '$url'");
-            }
-
-            $cmd = "git clone $url --branch $branch $path";
-        }
-
-        exec($cmd, $output, $returnVar);
-
-        if ($returnVar != 0) {
-            throw new Exception("Error cloning repository: " . implode("\n", $output));
-        }
-
-        // Add upstream remote if specified
-        if (!empty($upstream)) {
-            // Check if the upstream branch exists on the upstream repository
-            $checkUpstreamBranchCmd = "git ls-remote --heads $upstream $branch";
-            exec($checkUpstreamBranchCmd, $upstreamOutput, $upstreamReturnVar);
-
-            if ($upstreamReturnVar != 0) {
-                $this->cli->warning("Could not check upstream repository '$upstream': " . implode("\n", $upstreamOutput));
-            } elseif (empty($upstreamOutput)) {
-                $this->cli->warning("Branch '$branch' does not exist on upstream repository '$upstream'");
-            } else {
-                // Add upstream remote
-                $addUpstreamCmd = "cd $path && git remote add upstream $upstream";
-                exec($addUpstreamCmd, $upstreamAddOutput, $upstreamAddReturnVar);
-
-                if ($upstreamAddReturnVar != 0) {
-                    $this->cli->warning("Failed to add upstream remote: " . implode("\n", $upstreamAddOutput));
-                } else {
-                    $this->cli->info("Added upstream remote '$upstream' for repository");
-                }
-            }
-        }
     }
 
     public function getMchefPluginsInfoPath(): string {
@@ -400,44 +352,49 @@ class Plugins extends AbstractService {
             // Only support single github hosted plugins for now.
             if (strpos($recipePlugin->repo, 'https://github.com') === 0 || strpos($recipePlugin->repo, 'git@github.com') === 0) {
                 if ($recipe->mountPlugins) {
-                    $tmpDir = sys_get_temp_dir().'/'.uniqid('', true);
 
-                    $this->cloneGithubRepository($recipePlugin->repo, $recipePlugin->branch, $tmpDir, $recipePlugin->upstream);
-                    $versionFiles = $this->findMoodleVersionFiles($tmpDir);
-                    if (count($versionFiles) === 1) {
+                    $versionFileContents = $this->gitService->fetchRepoSingleFileContents(
+                        $recipePlugin->repo,
+                        $recipePlugin->branch,
+                        'version.php'
+                    );
+
+                    if ($versionFileContents) {
                         // Repository is a single plugin.
-                        if (file_exists(OS::path($tmpDir.'/version.php'))) {
-                            $pluginName = $this->getPluginComponentFromVersionFile($tmpDir.'/version.php');
-                            $pluginPath = $this->getMoodlePluginPath($pluginName);
-                            
-                            // Use the new moodle directory structure
-                            $targetPath = $this->getPluginTargetPath($recipe, $recipePath, $pluginName);
-                            if (!file_exists(OS::path($targetPath.'/version.php'))) {
-                                $this->cli->info('Moving plugin from temp folder to ' . $targetPath);
-                                if (!file_exists($targetPath) && !OS::isWindows()) {
-                                    mkdir($targetPath, 0755, true);
-                                }
-                                rename($tmpDir, $targetPath);
-                            } else {
-                                $this->cli->info('Skipping copying '.$pluginName.' as already present at '.$targetPath);
-                                // Plugin already present locally.
-                                $this->fileService->deleteDir($tmpDir);
+                        $pluginName = $this->getPublicComponentFromVersionContents($versionFileContents);
+                        $pluginPath = $this->getMoodlePluginPath($pluginName, $recipe);
+                        
+                        $targetPath = $this->getPluginTargetPath($recipe, $recipePath, $pluginName);
+                        if (!file_exists(OS::path($targetPath.'/version.php'))) {                                                  
+                            $tmpDir = sys_get_temp_dir().'/'.uniqid('', true);
+                            $this->gitService->cloneGithubRepository($recipePlugin->repo, $recipePlugin->branch, $tmpDir, $recipePlugin->upstream);
+                            $versionFiles = $this->findMoodleVersionFiles($tmpDir);
+                            $versionFile = $versionFiles[0] ?? null;
+                
+                            $this->cli->info('Moving plugin from temp folder to ' . $targetPath);
+                            if (!file_exists($targetPath) && !OS::isWindows()) {
+                                mkdir($targetPath, 0755, true);
                             }
-                            $volumeHostPath = realpath($targetPath); // Not so portable but fine for local development. Prod won't use mounts anyway.
-                            if (OS::isWindows()) {
-                                // Volume path for windows needs to use forward slashes to work in docker compose!
-                                $volumeHostPath = $this->dockerService->windowsToDockerPath($targetPath);
-                            }
-                            $volume = new Volume(...['path' => $pluginPath, 'hostPath' => $volumeHostPath]);
-                            $volumes[] = $volume;
-                            $plugins[$pluginName] = new Plugin(
-                                $pluginName,
-                                $pluginPath,
-                                $targetPath,
-                                $volume,
-                                $plugin
-                            );
+                            rename($tmpDir, $targetPath);
+                        } else {
+                            $this->cli->info('Skipping retrieval of '.$pluginName.' as already present at '.$targetPath);
                         }
+                        $volumeHostPath = realpath($targetPath); // Not so portable but fine for local development. Prod won't use mounts anyway.
+                        if (OS::isWindows()) {
+                            // Volume path for windows needs to use forward slashes to work in docker compose!
+                            $volumeHostPath = $this->dockerService->windowsToDockerPath($targetPath);
+                        }
+
+                        $volume = new Volume(...['path' => $pluginPath, 'hostPath' => $volumeHostPath]);
+                        $volumes[] = $volume;
+                        $plugins[$pluginName] = new Plugin(
+                            $pluginName,
+                            $pluginPath,
+                            $targetPath,
+                            $volume,
+                            $plugin
+                        );
+                        
                     } else {
                         // TODO - support plugins already in a structure.
 
@@ -449,12 +406,12 @@ class Plugins extends AbstractService {
                     // Even without volume mounts, we need to get plugin info for Docker cloning
                     $tmpDir = sys_get_temp_dir().'/'.uniqid('', true);
                     
-                    $this->cloneGithubRepository($recipePlugin->repo, $recipePlugin->branch, $tmpDir, $recipePlugin->upstream);
+                    $this->gitService->cloneGithubRepository($recipePlugin->repo, $recipePlugin->branch, $tmpDir, $recipePlugin->upstream);
                     $versionFiles = $this->findMoodleVersionFiles($tmpDir);
                     if (count($versionFiles) === 1) {
                         if (file_exists(OS::path($tmpDir.'/version.php'))) {
                             $pluginName = $this->getPluginComponentFromVersionFile($tmpDir.'/version.php');
-                            $pluginPath = $this->getMoodlePluginPath($pluginName);
+                            $pluginPath = $this->getMoodlePluginPath($pluginName, $recipe);
                             
                             // Create dummy volume for plugin entry (won't be used for mounting)
                             $dummyVolume = new Volume(...['path' => $pluginPath, 'hostPath' => '']);
@@ -495,10 +452,7 @@ class Plugins extends AbstractService {
         return $pluginsInfo;
     }
 
-    public function getPluginComponentFromVersionFile($filepath): string {
-        // Read the contents of the version.php file
-        $contents = file_get_contents($filepath);
-
+    public function getPublicComponentFromVersionContents($contents): string {
         // Search for the plugin name using a regular expression
         preg_match('/\$plugin->component\s*=\s*[\'"](.+?)[\'"];/s', $contents, $matches);
         if (isset($matches[1])) {
@@ -508,6 +462,13 @@ class Plugins extends AbstractService {
         }
 
         return $pluginName;
+    }
+
+    public function getPluginComponentFromVersionFile($filepath): string {
+        // Read the contents of the version.php file
+        $contents = file_get_contents($filepath);
+
+        return $this->getPublicComponentFromVersionContents($contents);
     }
 
     /**

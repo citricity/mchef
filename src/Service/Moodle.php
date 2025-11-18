@@ -6,8 +6,55 @@ use App\Model\Recipe;
 
 class Moodle extends AbstractService {
 
+    private Git $gitService;
+
     final public static function instance(): Moodle {
         return self::setup_singleton();
+    }
+    
+    /**
+     * Check if the current Moodle version uses the public folder structure.
+     * Caches the result to avoid repeated remote checks.
+     *
+     * @param Recipe $recipe The recipe containing moodleTag
+     * @return bool True if public folder should be used
+     */
+    public function shouldUsePublicFolder(Recipe $recipe): bool {
+        static $publicFolderCache = [];
+        
+        $moodleTag = $recipe->moodleTag;
+        
+        // Check cache first
+        if (isset($publicFolderCache[$moodleTag])) {
+            return $publicFolderCache[$moodleTag];
+        }
+        
+        // Check if public folder exists for this Moodle version
+        $hasPublicFolder = $this->gitService->moodleHasPublicFolder($moodleTag);
+        
+        // Cache the result
+        $publicFolderCache[$moodleTag] = $hasPublicFolder;
+        
+        if ($hasPublicFolder) {
+            $this->cli->info("Moodle {$moodleTag} uses public folder structure - plugins will be installed in public/ paths");
+        }
+        
+        return $hasPublicFolder;
+    }
+
+    public function getDockerMoodlePath(Recipe $recipe): string {
+        $moodleDir = $recipe->moodleDirectory ?? 'moodle';
+        return '/var/www/html/' . $moodleDir;
+    }
+
+    public function getDockerMoodlePublicPath(Recipe $recipe): string {
+        $moodleDir = $this->getDockerMoodlePath($recipe);
+        $hasPublicFolder = $this->shouldUsePublicFolder($recipe);
+        if ($hasPublicFolder) {
+            $moodleDir .= '/public';
+        }
+
+        return $moodleDir;
     }
 
     /**
@@ -45,5 +92,10 @@ class Moodle extends AbstractService {
         $projectDir = dirname($recipePath);
         $moodleDirectoryName = $recipe->moodleDirectory ?? 'moodle';
         return $projectDir . DIRECTORY_SEPARATOR . $moodleDirectoryName;
+    }
+
+    public function getMoodlePluginsPath(Recipe $recipe, string $recipePath): string {
+        $moodleDir = $this->getMoodleDirectoryPath($recipe, $recipePath);
+        return $moodleDir . DIRECTORY_SEPARATOR . 'mod';
     }
 }

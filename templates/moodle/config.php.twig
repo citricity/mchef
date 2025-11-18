@@ -4,6 +4,8 @@ unset($CFG);
 global $CFG;
 $CFG = new stdClass();
 
+$hasPublic = file_exists(__DIR__.'/public');
+
 $CFG->dblibrary = 'native';
 $CFG->dbtype    = getenv('DB_TYPE');
 $CFG->dbhost    = getenv('DB_HOST');
@@ -60,7 +62,8 @@ $CFG->behat_faildump_path = '/var/www/html/moodle/behat_dump';
 $CFG->behat_increasetimeout = 2;
 
 // Create behat profiles using browser-config tool.
-require_once('moodle-browser-config/init.php');
+$publicDir = $hasPublic ? 'public/' : '';
+require_once('{$publicDir}moodle-browser-config/init.php');
 
 // Add additional host profiles so that you can see the tests running on your host (requires selenium or chrome driver to be running on host).
 // Note - currently only chrome driver is supported.
