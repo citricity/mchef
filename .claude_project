@@ -142,7 +142,7 @@
   },
   "recent_changes": [
     "Added RecipePlugin model with upstream repository support",
-    "Enhanced cloneGithubRepository method with branch validation",
+    "Enhanced cloneGitRepository method with branch validation",
     "Implemented upstream remote addition with validation",
     "Added comprehensive error handling and user feedback",
     "Maintained backward compatibility with existing recipe formats"

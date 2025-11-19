@@ -52,7 +52,7 @@ Enhanced plugin management to use moodle directory structure:
 // New method for plugin target path calculation
 private function getPluginTargetPath(Recipe $recipe, string $recipePath, string $pluginName): string {
     $moodleDir = $this->moodleService->provideMoodleDirectory($recipe, $recipePath);
-    $pluginPath = $this->getMoodlePluginPath($pluginName);
+    $pluginPath = $this->getMoodlePluginPath($pluginName, $recipe);
     return $moodleDir . $pluginPath;
 }
 ```

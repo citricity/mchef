@@ -53,7 +53,7 @@ final class CopySrc extends AbstractCommand {
         // Remove plugin folders from tmpDir on guest.
         // This is essential to avoid copying paths that are volumes back to host which results in docker locking up.
         // We also don't want to wipe over local plugin work!
-        $pluginsInfo = $this->pluginsService->getPluginsInfoFromRecipe($this->recipe);
+        $pluginsInfo = $this->pluginsService->getPluginsInfoFromRecipe($this->recipe, StaticVars::$noCache);
         $paths = array_map(function($volume) { return $volume->path; }, $pluginsInfo->volumes);
         foreach ($paths as $path) {
             $cmd = 'docker exec '.$moodleContainer.' rm -rf '.$tmpDir.'/moodle/'.$path;

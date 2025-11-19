@@ -4,8 +4,13 @@ namespace App\Service;
 
 use App\Exceptions\CliRuntimeException;
 use App\Helpers\OS;
+use Exception;
+use InvalidArgumentException;
 
 class Git extends AbstractService {
+
+    private File $fileService;
+    private Github $githubService;
 
     final public static function instance(): Git {
         return self::setup_singleton();
@@ -473,6 +478,146 @@ class Git extends AbstractService {
         return false;
     }
 
+    private function fetchSingleFileFromRemote(string $repoUrl, string $branchOrTag, string $filePath): ?string {
+        $tempDir = sys_get_temp_dir() . '/' . uniqid('git_file_', true);
+        mkdir($tempDir);
+
+        try {
+            // Initialize empty repo
+            exec("git init --quiet " . escapeshellarg($tempDir), $_, $ret);
+            if ($ret !== 0) {
+                throw new CliRuntimeException("git init failed");
+            }
+
+            // Add remote
+            exec("git -C " . escapeshellarg($tempDir) . " remote add origin " . escapeshellarg($repoUrl), $_, $ret);
+            if ($ret !== 0) {
+                throw new CliRuntimeException("git remote add failed");
+            }
+
+            // Shallow fetch with blob filter to avoid file content download
+            exec(
+                "git -C " . escapeshellarg($tempDir)
+                . " fetch --depth=1 --filter=blob:none origin " . escapeshellarg($branchOrTag),
+                $fetchOutput,
+                $fetchStatus
+            );
+
+            if ($fetchStatus !== 0) {
+                return null; // branch doesn't exist or network failed
+            }
+
+            // Fetch just this file blob on demand
+            exec(
+                "git -C " . escapeshellarg($tempDir)
+                . " show FETCH_HEAD:" . escapeshellarg(ltrim($filePath, '/')),
+                $fileOutput,
+                $fileStatus
+            );
+
+            if ($fileStatus !== 0) {
+                return null; // file not found
+            }
+
+            // Join file lines (exec strips newlines)
+            return implode("\n", $fileOutput);
+
+        } finally {
+            // Always cleanup
+            $this->fileService->deleteDir($tempDir);
+        }
+    }
+
+    public function fetchRepoSingleFileContents(string $url, string $branchOrTag, string $filePath): ?string {
+        if (strpos($url, 'github.com') !== false) {
+            try {
+                $contents = $this->githubService->fetchGithubRepoSingleFileContents($url, $branchOrTag, $filePath);
+                return $contents;
+            } catch (InvalidArgumentException $e) {
+                // Not a valid GitHub URL, fall back to git fetch method
+                $this->cli->info("Not a valid GitHub URL, falling back to git fetch method.");
+            } catch (\Exception $e) {
+                $this->cli->warning("Error fetching file via GitHub raw URL: " . $e->getMessage());
+            }
+        }
+        return $this->fetchSingleFileFromRemote($url, $branchOrTag, $filePath);
+    }
+
+    /**
+     * Check if a folder exists in a remote repository at a specific tag or branch
+     */
+    private function checkFolderExistsViaFetch(string $repositoryUrl, string $branchOrTag, string $folderPath) {
+        $tempDir = sys_get_temp_dir() . '/' . uniqid('git_check_', true);
+        mkdir($tempDir);
+
+        try {
+            exec("git init --quiet " . escapeshellarg($tempDir));
+
+            chdir($tempDir);
+
+            exec("git remote add origin " . escapeshellarg($repositoryUrl));
+
+            exec("git fetch --depth=1 --filter=blob:none origin " . escapeshellarg($branchOrTag), $output, $fetchStatus);
+            if ($fetchStatus !== 0) {
+                return false;
+            }
+
+            exec(
+                "git ls-tree -d --name-only FETCH_HEAD " . escapeshellarg($folderPath),
+                $treeOutput,
+                $treeStatus
+            );
+
+            return !empty($treeOutput);
+
+        } finally {
+            $this->fileService->deleteDir($tempDir);
+        }
+    }
+
+    /**
+     * Check if a folder exists in a remote repository at a specific tag or branch.
+     *
+     * @param string $repositoryUrl The repository URL to check
+     * @param string $branchOrTag The branch or tag to check
+     * @param string $folderPath The folder path to check (e.g., 'public')
+     * @return bool True if the folder exists, false otherwise
+     * @throws CliRuntimeException
+     */
+    private function folderExistsInRemote(string $repositoryUrl, string $branchOrTag, string $folderPath): bool {
+        if (strpos($repositoryUrl, 'github.com') !== false) {
+            try {
+                return $this->githubService->githubFolderExists($repositoryUrl, $branchOrTag, $folderPath);
+            } catch (InvalidArgumentException $e) {
+                // Not a valid GitHub URL, fall back to git fetch method
+                $this->cli->info("Not a valid GitHub URL, falling back to git fetch method.");
+            } catch (\Exception $e) {
+                $this->cli->warning("Error checking folder via GitHub raw URL: " . $e->getMessage());
+            }
+        }
+        
+        return $this->checkFolderExistsViaFetch($repositoryUrl, $branchOrTag, $folderPath);
+    }
+
+    /**
+     * Check if the 'public' folder exists in a remote Moodle repository at a specific tag.
+     * This is specifically for detecting Moodle 5.1+ structure changes.
+     *
+     * @param string $moodleTag The Moodle version tag to check
+     * @return bool True if public folder exists, false otherwise
+     */
+    public function moodleHasPublicFolder(string $moodleTag): bool {
+        $moodleRepoUrl = 'https://github.com/moodle/moodle.git';
+        
+        try {
+            return $this->folderExistsInRemote($moodleRepoUrl, $moodleTag, 'public');
+        } catch (CliRuntimeException $e) {
+            // If we can't check remotely, assume no public folder (backwards compatible)
+            $this->cli->warning("Could not check for public folder in Moodle {$moodleTag}: " . $e->getMessage());
+            return false;
+        }
+    }
+
     /**
      * Backward compatibility method for checkoutBranch.
      * 
@@ -484,5 +629,59 @@ class Git extends AbstractService {
      */
     public function checkoutBranch(string $repositoryPath, string $branchName, string $remoteName = 'origin'): void {
         $this->checkoutBranchOrTag($repositoryPath, $branchName, $remoteName);
+    }
+
+    /**
+     * Clone a git repository.
+     *
+     * @param string $url
+     * @param string $branch
+     * @param string $path
+     * @param string|null $upstream
+     * @throws Exception
+     */
+    public function cloneGitRepository($url, $branch, $path, ?string $upstream = null) {
+
+        if (empty($branch)) {
+            $cmd = "git clone $url $path";
+        } else {
+            $branchOrTagExists = $this->branchOrTagExistsRemotely($url, $branch);
+
+            // If no output, the branch doesn't exist
+            if (!$branchOrTagExists) {
+                throw new Exception("Branch '$branch' does not exist for repository '$url'");
+            }
+
+            $cmd = "git clone $url --branch $branch $path";
+        }
+
+        exec($cmd, $output, $returnVar);
+
+        if ($returnVar != 0) {
+            throw new Exception("Error cloning repository: " . implode("\n", $output));
+        }
+
+        // Add upstream remote if specified
+        if (!empty($upstream)) {
+            // Check if the upstream branch exists on the upstream repository
+            $checkUpstreamBranchCmd = "git ls-remote --heads $upstream $branch";
+            exec($checkUpstreamBranchCmd, $upstreamOutput, $upstreamReturnVar);
+
+            if ($upstreamReturnVar != 0) {
+                $this->cli->warning("Could not check upstream repository '$upstream': " . implode("\n", $upstreamOutput));
+            } elseif (empty($upstreamOutput)) {
+                $this->cli->warning("Branch '$branch' does not exist on upstream repository '$upstream'");
+            } else {
+                // Add upstream remote
+                $addUpstreamCmd = "cd $path && git remote add upstream $upstream";
+                exec($addUpstreamCmd, $upstreamAddOutput, $upstreamAddReturnVar);
+
+                if ($upstreamAddReturnVar != 0) {
+                    $this->cli->warning("Failed to add upstream remote: " . implode("\n", $upstreamAddOutput));
+                } else {
+                    $this->cli->info("Added upstream remote '$upstream' for repository");
+                }
+            }
+        }
     }
 }

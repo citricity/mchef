@@ -16,8 +16,21 @@ final class PluginsServiceTest extends MchefTestCase {
 
     public function testGetMoodlePluginPath(): void {
         $pluginsService = Plugins::instance();
-        $path = $this->callRestricted($pluginsService, 'getMoodlePluginPath', ['local_test']);
+        
+        // Test without recipe (should work as before)
+        $path = $this->callRestricted($pluginsService, 'getMoodlePluginPath', ['local_test', null]);
         $this->assertEquals('/local/test', $path);
+        
+        // Test with recipe that doesn't use public folder (Moodle 5.0)
+        $recipe = new Recipe(
+            moodleTag: 'v5.0.0',
+            phpVersion: '8.0'
+        );
+        $path = $this->callRestricted($pluginsService, 'getMoodlePluginPath', ['local_test', $recipe]);
+        $this->assertEquals('/local/test', $path);
+        
+        // Note: We can't easily test public folder behavior in unit tests 
+        // as it requires remote Git calls. This would be covered by integration tests.
     }
 
     public function testGetPluginsInfoFromRecipe(): void {
