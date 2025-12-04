@@ -225,6 +225,8 @@ class SampleData extends AbstractService {
             $argsStr
         );
 
+        $this->cli->notice("Executing Moodle CLI script: {$cmd}");
+
         $this->execPassthru($cmd, "Failed to execute Moodle CLI script: {$scriptPath}");
     }
 
