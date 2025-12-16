@@ -152,9 +152,9 @@ The `config` object allows you to customize Moodle's configuration settings:
 
 ### Sample Data
 
-The `sampleData` object configures automatic test data generation using Moodle's `tool_generator`. This is useful for creating realistic test environments with courses, users, activities, and content.
+The `sampleData` object configures automatic test data generation using Moodle's built-in `tool_generator`. This tool creates realistic test environments with courses, users, activities, files, forums, and automatic user enrollment. MChef uses Moodle's `tool_generator` to generate this test data automatically during Moodle installation.
 
-**New format (recommended):**
+**Configuration example:**
 ```json
 "sampleData": {
   "mode": "site",
@@ -165,14 +165,22 @@ The `sampleData` object configures automatic test data generation using Moodle's
 }
 ```
 
-**Legacy format (still supported):**
+**Site mode example:**
 ```json
 "sampleData": {
-  "students": 200,
-  "teachers": 50,
-  "categories": 10,
-  "courses": 30,
-  "courseSize": "small"
+  "mode": "site",
+  "size": "M",
+  "fixeddataset": true
+}
+```
+
+**Course mode example:**
+```json
+"sampleData": {
+  "mode": "course",
+  "size": "L",
+  "courses": 20,
+  "additionalmodules": ["quiz", "forum"]
 }
 ```
 
@@ -183,11 +191,7 @@ The `sampleData` object configures automatic test data generation using Moodle's
 | `fixeddataset` | bool | `false` | If `true`, uses a fixed dataset instead of randomly generated data. Useful for reproducible tests. |
 | `filesizelimit` | int\|bool | `false` | Maximum file size in bytes for generated files. Set to `false` for no limit. |
 | `additionalmodules` | array | `[]` | Additional modules to include when creating courses (e.g., `["quiz", "forum"]`). Modules must implement the `course_backend_generator_create_activity` function. |
-| `students` | int | `null` | (Legacy) Number of students to create. |
-| `teachers` | int | `null` | (Legacy) Number of teachers to create. |
-| `categories` | int | `null` | (Legacy) Number of course categories to create. |
-| `courses` | int | `null` | (Legacy) Number of courses to create. |
-| `courseSize` | string | `null` | (Legacy/Deprecated) Course size: `"small"`, `"medium"`, `"large"`, or `"random"`. Use `size` instead. |
+| `courses` | int | `10` | Number of courses to create when `mode` is `"course"`. Not used in `"site"` mode. |
 
 **Size Reference:**
 - **XS**: ~10KB; creates in ~1 second
@@ -197,7 +201,13 @@ The `sampleData` object configures automatic test data generation using Moodle's
 - **XL**: ~10GB; creates in ~2 hours
 - **XXL**: ~20GB; creates in ~4 hours
 
-**Note:** The new format uses Moodle's built-in `tool_generator` which creates realistic test data with activities, files, forums, and automatic user enrollment. The legacy format creates basic courses without rich content.
+**Related Documentation:**
+- [Moodle Developer Resources - Generator tool](https://moodledev.io/general/development/tools/generator) - Official Moodle documentation on the tool_generator
+- [Moodle PHP Documentation - tool_generator](https://phpdoc.moodledev.io/main/df/db7/group__tool__generator.html) - PHP API documentation for tool_generator
+
+**How it works:**
+- **Site mode**: When `mode` is set to `"site"`, MChef executes Moodle's `admin/tool/generator/cli/maketestsite.php` script, which creates a complete test site with courses, users, activities, and content based on the specified size.
+- **Course mode**: When `mode` is set to `"course"`, MChef executes Moodle's `admin/tool/generator/cli/maketestcourse.php` script for each course specified by the `courses` property. This allows you to create individual test courses with specific configurations.
 
 ## Behat
 

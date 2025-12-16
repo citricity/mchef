@@ -6,7 +6,7 @@ class SampleData extends AbstractModel {
     public function __construct(
         /**
          * @var string|null - Generation mode: "site" (uses maketestsite.php) or "course" (uses maketestcourse.php)
-         * Defaults to "site" for new configurations, "course" for legacy
+         * Defaults to "site"
          */
         public ?string $mode = null,
 
@@ -29,33 +29,14 @@ class SampleData extends AbstractModel {
 
         /**
          * @var array|null - Additional modules to include (e.g., ["quiz", "forum"])
+         * Modules must implement the course_backend_generator_create_activity function
          */
         public ?array $additionalmodules = null,
 
-        // Legacy/Override properties - kept for backward compatibility and fine-grained control
         /**
-         * @var int|null - Number of students to create (legacy/override)
-         */
-        public ?int $students = null,
-
-        /**
-         * @var int|null - Number of teachers to create (legacy/override)
-         */
-        public ?int $teachers = null,
-
-        /**
-         * @var int|null - Number of categories to create (legacy/override)
-         */
-        public ?int $categories = null,
-
-        /**
-         * @var int|null - Number of courses to create (legacy/override)
+         * @var int|null - Number of courses to create (only used when mode is "course")
+         * Defaults to 10
          */
         public ?int $courses = null,
-
-        /**
-         * @var string|null - Course size: "small", "medium", "large", "random" (deprecated, use size instead)
-         */
-        public ?string $courseSize = null,
     ) { }
 }
