@@ -199,6 +199,11 @@ class Recipe extends AbstractModel {
 
         public MoodleConfig $config = new MoodleConfig(),
 
+        /**
+         * @var SampleData|null - Sample data configuration for test data generation
+         */
+        public ?SampleData $sampleData = null,
+
         // These properties are used to build the custom config file.
 
         public ?string $configFile = null,

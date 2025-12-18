@@ -29,6 +29,7 @@ class Main extends AbstractService {
     private Database $databaseService;
     private Environment $environmentService;
     private MoodleConfig $moodleConfigService;
+    private MoodleInstall $moodleInstallService;
 
     // Models
     private Recipe $recipe;
@@ -221,7 +222,6 @@ class Main extends AbstractService {
     private function configureDockerNetwork(Recipe $recipe): void {
         // TODO LOW priority- default should be mc-network unless defined in recipe or main config.
         $networkName = 'mc-network';
-        $database = $this->databaseService::getDatabase();
 
         if ($this->dockerService->networkExists($networkName)) {
             $this->cli->info('Skipping creating network as it exists: '.$networkName);
@@ -250,68 +250,8 @@ class Main extends AbstractService {
 
         $this->cli->success('Network configuration successful');
 
-        if ($recipe->installMoodledb) {
-            // Try installing The DB
-            $this->cli->notice('Try installing MoodleDB');
-
-            $dbnotready = true;
-            $dbCheckCmd = $database->buildDBQueryDockerCommand('SELECT 1');
-
-            while ($dbnotready) {
-                exec($dbCheckCmd, $output, $returnVar);
-                if ($returnVar === 0) {
-                    $dbnotready = false;
-                }
-                $this->cli->notice('Waiting for DB '.$dbContainer.' to be ready');
-                $this->cli->notice('Command :' . $dbCheckCmd);
-                sleep(1);
-            }
-            $this->cli->notice('DB '.$dbContainer.' ready!');
-
-            $dbSchemaInstalledCmd = $database->buildDBQueryDockerCommand('SELECT * FROM mdl_course', true);
-
-            // Execute the command
-            exec($dbSchemaInstalledCmd, $output, $returnVar);
-            $dbSchemaInstalled = $returnVar === 0;
-            $doDbInstall = !$dbSchemaInstalled;
-
-            if (!$doDbInstall) {
-                $this->cli->notice('DB already installed. Skipping installation');
-            } else {
-                $this->cli->notice('Installing DB');
-
-                // Get language and admin password
-                $globalConfig = $this->configuratorService->getMainConfig();
-                $lang = $globalConfig->lang ?? 'en';
-                $adminPasswordRaw = $recipe->adminPassword ?? $globalConfig->adminPassword ?? '123456';
-                // Bash-safe escaping: wrap in single quotes and escape any single quotes inside
-                $adminPassword = "'" . str_replace("'", "'\\''", $adminPasswordRaw) . "'";
-
-                $moodlePath = $this->moodleService->getDockerMoodlePath($recipe);   
-                $installoptions = $moodlePath . '/admin/cli/install_database.php --lang=' . $lang . ' --adminpass=' . $adminPassword . ' --adminemail=admin@example.com --agree-license --fullname=mchef-MOODLE --shortname=mchefMOODLE';
-                $cmdinstall = 'docker exec ' . $moodleContainer . ' php ' . $installoptions;
-
-                // Try to install
-                try {
-                    $this->execPassthru($cmdinstall);
-                } catch (\Exception $e) {
-                    // Installation failed, ask if DB should be dropped?
-                    $this->cli->error($e->getMessage());
-                    $overwrite = readline("Do you want to delete the db and install fresh? (yes/no): ");
-
-                    if (strtolower(trim($overwrite)) === 'yes') {
-                        $this->cli->notice('Overwriting the existing Moodle database...');
-                        // Drop all DB Tables in public
-                        $database->dropAllTables();
-                        // Do the installation again, should work now
-                        $this->execPassthru($cmdinstall);
-                    } else {
-                        $this->cli->notice('Skipping Moodle database installation.');
-                    }
-                }
-            }
-            $this->cli->notice('Moodle database installed successfully.');
-        }
+        // Install Moodle database and sample data
+        $this->moodleInstallService->installMoodle($recipe, $moodleContainer, $dbContainer);
     }
 
     private function checkPortBinding(Recipe $recipe): bool {
@@ -491,7 +431,7 @@ class Main extends AbstractService {
 
         // Populate assets first, as in doing so, the recipe may change.
         $this->populateAssets($recipe);
-        
+
         $dockerData = $this->establishDockerData();
 
         // Add plugin data for dockerfile shallow cloning

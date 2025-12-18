@@ -18,5 +18,12 @@
   "updateHostHosts": true,
   "dbType": "pgsql",
   "dbHostPort": "55435",
-  "mountPlugins": true
+  "mountPlugins": true,
+  "sampleData": {
+    "mode": "site",
+    "size": "S",
+    "fixeddataset": false,
+    "filesizelimit": false,
+    "additionalmodules": []
+  }
 }
