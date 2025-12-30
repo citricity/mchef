@@ -76,6 +76,20 @@ mchef.php example-mrecipe.json
 Search in  "/src/Model/Recipe.php" for all the possible ingredients of your recipe.
 Enjoy cooking.
 
+## Default Admin Credentials
+
+When MChef installs a Moodle site, it creates an admin user with the following default credentials:
+
+- **Username:** `admin`
+- **Password:** `123456`
+
+These defaults can be customized in two ways:
+
+1. **Per Recipe:** Add an `adminPassword` field to your recipe JSON file (see [Recipe File Structure](#recipe-file-structure) below).
+2. **Global Config:** Set a default admin password for all recipes using the global config: `mchef.php config --password`
+
+If neither is specified, the default password `123456` will be used.
+
 ## Recipe File Structure
 
 The recipe file is a JSON configuration file that defines how your Moodle instance should be set up. Below is a comprehensive reference of all available attributes.
@@ -94,9 +108,11 @@ The recipe file is a JSON configuration file that defines how your Moodle instan
 | `dbType` | string | `"pgsql"` | Database type. Valid values: `"pgsql"` (PostgreSQL) or `"mysql"` / `"mysqli"` (MySQL). |
 | `dbHostPort` | string | `null` | Database host port to forward to (e.g., `"55435"`). This allows you to connect to the database from your host machine. |
 | `mountPlugins` | bool | `null` | If `true`, uses volume mounts for plugins, facilitating local development. When `false`, plugins are shallow-cloned directly in the Docker image. |
+| `adminPassword` | string | `null` | Admin password for the Moodle installation. If not specified, uses global config password or defaults to `"123456"`. See [Default Admin Credentials](#default-admin-credentials) above. |
 | `config` | object | `{}` | Moodle configuration object. See [Config](#config) section below. |
 | `configFile` | string | `null` | Path to a custom Moodle config.php file to use instead of the generated one. |
 | `sampleData` | object | `null` | Sample data configuration for test data generation. See [Sample Data](#sample-data) section below. |
+| `restoreStructure` | object\|string | `null` | Restore structure configuration for loading users and courses. Can be an object or a URL string pointing to a JSON file. See [Restore Structure](#restore-structure) section below. |
 
 ### Plugins
 
@@ -208,6 +224,85 @@ The `sampleData` object configures automatic test data generation using Moodle's
 **How it works:**
 - **Site mode**: When `mode` is set to `"site"`, MChef executes Moodle's `admin/tool/generator/cli/maketestsite.php` script, which creates a complete test site with courses, users, activities, and content based on the specified size.
 - **Course mode**: When `mode` is set to `"course"`, MChef executes Moodle's `admin/tool/generator/cli/maketestcourse.php` script for each course specified by the `courses` property. This allows you to create individual test courses with specific configurations.
+
+### Restore Structure
+
+The `restoreStructure` object allows you to load users and courses from external sources (CSV files and MBZ backup files) into your Moodle instance. This is useful for setting up development or testing environments with specific data.
+
+**Configuration example:**
+```json
+{
+  "name": "example",
+  "moodleTag": "v4.1.0",
+  "phpVersion": "8.0",
+  "restoreStructure": {
+    "users": "users.csv",
+    "courseCategories": {
+      "Art": [
+        "backupart1.mbz",
+        "https://someurl.com/backupart2.mbz"
+      ],
+      "Science": {
+        "Biology": [
+          "https://someurl.com/backupbio1.mbz",
+          "https://someurl.com/backupbio2.mbz"
+        ],
+        "Chemistry": [
+          "chem1.mbz",
+          "https://someurl.com/backupchem1.mbz"
+        ]
+      }
+    }
+  }
+}
+```
+
+**Loading restore structure from URL:**
+```json
+{
+  "name": "example",
+  "moodleTag": "v4.1.0",
+  "phpVersion": "8.0",
+  "restoreStructure": "https://my.cdn/restoreStructure.json"
+}
+```
+
+When `restoreStructure` is a string URL, MChef will download the JSON file from that URL and use it as the restore structure configuration. The downloaded JSON must follow the same structure as the `restoreStructure` object.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `users` | string | Path or URL to a CSV file containing user data. Can be: a relative path (relative to the recipe file), an absolute path, or a URL. The CSV file will be processed using Moodle's Upload users tool. |
+| `courseCategories` | object | Recursive object representing a category hierarchy. Each key is a category name, and the value can be either: an array of MBZ backup file paths (strings) to restore as courses in that category, or another object representing nested subcategories. |
+
+**Category Structure:**
+- **Category with courses**: A category name followed by an array of MBZ file paths:
+  ```json
+  "Art": ["backup1.mbz", "backup2.mbz"]
+  ```
+- **Nested categories**: A category name followed by another category structure object:
+  ```json
+  "Science": {
+    "Biology": ["bio1.mbz"],
+    "Chemistry": ["chem1.mbz", "chem2.mbz"]
+  }
+  ```
+
+**File Paths:**
+All file paths (for `users` CSV and MBZ backup files) can be specified as:
+- **Relative paths**: Relative to the recipe file location (e.g., `"users.csv"`, `"backups/course1.mbz"`)
+- **Absolute paths**: Full system paths (e.g., `"/path/to/users.csv"`)
+- **URLs**: HTTP/HTTPS URLs that will be downloaded automatically (e.g., `"https://example.com/users.csv"`)
+
+**How it works:**
+1. **Users**: MChef uses Moodle's Upload users CLI tool (`admin/tool/uploaduser/cli/uploaduser.php` or `public/admin/tool/uploaduser/cli/uploaduser.php` for Moodle 5.1+) to import users from the CSV file. The CSV file is automatically copied or downloaded into the Moodle container before processing.
+2. **Categories**: MChef creates the category hierarchy using a CLI script (`admin/cli/create_category_mchef.php`). Categories are created recursively based on the structure defined in `restoreStructure.courseCategories`. **Only categories specified under `restoreStructure.courseCategories` will be created** - no other categories are created automatically.
+3. **Courses**: MChef restores course backups using Moodle's `admin/cli/restore_backup.php` script. Each MBZ file is automatically copied or downloaded into the Moodle container, then restored to the appropriate category.
+
+**Notes:**
+- The restore structure is processed after Moodle installation and sample data generation (if configured).
+- **Categories are only created if they are specified under `restoreStructure.courseCategories`** - the recipe file will not create any categories that are not explicitly defined in the restore structure.
+- Course backups are restored in the order they appear in the configuration.
+- The `users` CSV file must follow Moodle's upload users format. See [Moodle Upload users documentation](https://docs.moodle.org/501/en/Upload_users) for details.
 
 ## Behat
 

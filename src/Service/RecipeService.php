@@ -30,6 +30,9 @@ class RecipeService extends AbstractService {
             throw new Exception('Failed to decode recipe JSON. Recipe: '.$filePath, 0, $e);
         }
 
+        // Handle restoreStructure URL if it's a string
+        $this->handleRestoreStructureUrl($recipe, $filePath);
+
         // If adminPassword is not set in recipe, use global config value if available
         if (empty($recipe->adminPassword)) {
             $globalConfig = $this->configuratorService->getMainConfig();
@@ -45,6 +48,65 @@ class RecipeService extends AbstractService {
         $recipe->setRecipePath($filePath);
 
         return $recipe;
+    }
+
+    /**
+     * Handle restoreStructure URL - if restoreStructure is a string URL, download and parse it
+     */
+    private function handleRestoreStructureUrl(Recipe $recipe, string $filePath): void {
+        // First, check if restoreStructure was parsed as a string (URL)
+        // We need to check the raw JSON to see if it's a string
+        $jsonData = json_decode(file_get_contents($filePath), true);
+        
+        if (isset($jsonData['restoreStructure']) && is_string($jsonData['restoreStructure'])) {
+            $restoreStructureUrl = $jsonData['restoreStructure'];
+            
+            if ($this->isUrl($restoreStructureUrl)) {
+                $this->cli->notice('Downloading restore structure from URL: ' . $restoreStructureUrl);
+                $downloadedContent = $this->downloadFile($restoreStructureUrl);
+                $downloadedData = json_decode($downloadedContent, true);
+                
+                if ($downloadedData === null) {
+                    throw new Exception('Failed to parse restore structure JSON from URL: ' . $restoreStructureUrl);
+                }
+
+                // Deserialize the downloaded structure as RestoreStructure
+                $restoreStructure = $this->deserializerService->deserializeData(
+                    $downloadedData,
+                    \App\Model\RestoreStructure::class
+                );
+                
+                $recipe->restoreStructure = $restoreStructure;
+            }
+        }
+    }
+
+    /**
+     * Download a file from URL
+     */
+    private function downloadFile(string $url): string {
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // For development - consider making configurable
+
+        $content = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+
+        if ($content === false || $httpCode !== 200) {
+            throw new Exception("Failed to download file from {$url}: HTTP {$httpCode} - {$error}");
+        }
+
+        return $content;
+    }
+
+    /**
+     * Check if a string is a valid URL
+     */
+    private function isUrl(string $str): bool {
+        return filter_var($str, FILTER_VALIDATE_URL) !== false;
     }
 
     private function validateRecipe(Recipe $recipe, string $filePath) {
