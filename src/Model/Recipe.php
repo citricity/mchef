@@ -205,9 +205,10 @@ class Recipe extends AbstractModel {
         public ?SampleData $sampleData = null,
 
         /**
-         * @var RestoreStructure|null - Restore structure configuration for users and courses
+         * @var RestoreStructure|string|null - Restore structure configuration for users and courses
+         * Can be a RestoreStructure object, a URL string to download the structure, or null
          */
-        public ?RestoreStructure $restoreStructure = null,
+        public RestoreStructure|string|null $restoreStructure = null,
 
         // These properties are used to build the custom config file.
 

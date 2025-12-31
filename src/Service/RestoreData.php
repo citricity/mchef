@@ -69,12 +69,31 @@ class RestoreData extends AbstractService {
             // Download file inside container
             $containerCsvPath = '/tmp/users.csv';
             $cmd = sprintf(
-                'docker exec %s bash -c "curl -L -o %s %s"',
+                'docker exec %s bash -c "curl -L --fail --silent --show-error -o %s %s"',
                 escapeshellarg($moodleContainer),
                 escapeshellarg($containerCsvPath),
                 escapeshellarg($usersPath)
             );
             $this->exec($cmd, "Failed to download users CSV in container");
+            
+            // Verify file was downloaded and has content
+            $verifyCmd = sprintf(
+                'docker exec %s bash -c "test -s %s || exit 1"',
+                escapeshellarg($moodleContainer),
+                escapeshellarg($containerCsvPath)
+            );
+            $this->exec($verifyCmd, "Downloaded CSV file is empty or does not exist");
+            
+            // Normalize the CSV file: remove BOM, convert line endings to Unix format
+            // First remove BOM if present, then convert CRLF to LF
+            $normalizeCmd = sprintf(
+                'docker exec %s bash -c "sed -i \'1s/^\\xEF\\xBB\\xBF//\' %s && dos2unix %s 2>/dev/null || sed -i \'s/\\r$//\' %s"',
+                escapeshellarg($moodleContainer),
+                escapeshellarg($containerCsvPath),
+                escapeshellarg($containerCsvPath),
+                escapeshellarg($containerCsvPath)
+            );
+            $this->exec($normalizeCmd, "Failed to normalize users CSV file");
         }
 
         // Determine upload script path based on Moodle version
@@ -126,105 +145,117 @@ class RestoreData extends AbstractService {
         // Get recipe file path - need to copy it to container or use existing path
         $recipePath = $recipe->getRecipePath();
         
-        // Copy recipe file to container
-        $containerRecipePath = '/tmp/recipe.json';
-        $cmd = sprintf(
-            'docker cp %s %s:%s',
-            escapeshellarg($recipePath),
-            escapeshellarg($moodleContainer),
-            escapeshellarg($containerRecipePath)
-        );
-        $this->exec($cmd, "Failed to copy recipe file to container");
+        // Create a temporary recipe file with resolved restoreStructure data
+        // This is needed when restoreStructure was downloaded from a URL
+        $tempRecipePath = $this->createTempRecipeWithResolvedStructure($recipe, $recipePath);
+        $recipeFileToUse = $tempRecipePath ?? $recipePath;
+        
+        try {
+            // Copy recipe file to container
+            $containerRecipePath = '/tmp/recipe.json';
+            $cmd = sprintf(
+                'docker cp %s %s:%s',
+                escapeshellarg($recipeFileToUse),
+                escapeshellarg($moodleContainer),
+                escapeshellarg($containerRecipePath)
+            );
+            $this->exec($cmd, "Failed to copy recipe file to container");
 
-        // Copy the CLI script to container
-        $cmd = sprintf(
-            'docker cp %s %s:%s',
-            escapeshellarg($sourceScript),
-            escapeshellarg($moodleContainer),
-            escapeshellarg($scriptPath)
-        );
-        $this->exec($cmd, "Failed to copy CLI script to container");
+            // Copy the CLI script to container
+            $cmd = sprintf(
+                'docker cp %s %s:%s',
+                escapeshellarg($sourceScript),
+                escapeshellarg($moodleContainer),
+                escapeshellarg($scriptPath)
+            );
+            $this->exec($cmd, "Failed to copy CLI script to container");
 
-        // Execute the CLI script with recipe file path via environment variable
-        $cmd = sprintf(
-            'docker exec -e MCHEF_RECIPE_PATH=%s %s php %s',
-            escapeshellarg($containerRecipePath),
-            escapeshellarg($moodleContainer),
-            escapeshellarg($scriptPath)
-        );
+            // Execute the CLI script with recipe file path via environment variable
+            $cmd = sprintf(
+                'docker exec -e MCHEF_RECIPE_PATH=%s %s php %s',
+                escapeshellarg($containerRecipePath),
+                escapeshellarg($moodleContainer),
+                escapeshellarg($scriptPath)
+            );
 
-        $this->cli->info("Executing category creation script...");
-        
-        // Capture both stdout and stderr
-        $cmdWithStderr = $cmd . ' 2>&1';
-        
-        $output = [];
-        $returnVar = 0;
-        exec($cmdWithStderr, $output, $returnVar);
-        $outputStr = implode("\n", $output);
-        
-        if ($returnVar !== 0) {
-            throw new Exception("Failed to create categories - script returned exit code {$returnVar}. Output: " . substr($outputStr, 0, 2000));
-        }
-        
-        // Check if output starts with "ERROR:"
-        if (strpos(trim($outputStr), 'ERROR:') === 0) {
-            throw new Exception(trim($outputStr));
-        }
-        
-        // Check for PHP errors or warnings in output
-        if (preg_match('/PHP (Fatal error|Parse error|Warning|Notice):/i', $outputStr)) {
-            throw new Exception("PHP error in script: " . $outputStr);
-        }
-        
-        // Parse JSON output from stdout
-        // The script outputs JSON to stdout, but debug messages go to stderr
-        // However, when we capture 2>&1, they're mixed. We need to extract the JSON.
-        
-        // Try to find JSON object in the output
-        // Look for the last occurrence of a complete JSON object
-        $jsonOutput = '';
-        $lines = explode("\n", $outputStr);
-        $jsonStartIndex = -1;
-        $braceCount = 0;
-        
-        // Find where JSON starts (first line with {)
-        for ($i = 0; $i < count($lines); $i++) {
-            $trimmed = trim($lines[$i]);
-            if (strpos($trimmed, '{') !== false) {
-                $jsonStartIndex = $i;
-                break;
+            $this->cli->info("Executing category creation script...");
+            
+            // Capture both stdout and stderr
+            $cmdWithStderr = $cmd . ' 2>&1';
+            
+            $output = [];
+            $returnVar = 0;
+            exec($cmdWithStderr, $output, $returnVar);
+            $outputStr = implode("\n", $output);
+            
+            if ($returnVar !== 0) {
+                throw new Exception("Failed to create categories - script returned exit code {$returnVar}. Output: " . substr($outputStr, 0, 2000));
             }
-        }
-        
-        if ($jsonStartIndex >= 0) {
-            // Collect lines from JSON start to end
-            $jsonLines = [];
-            for ($i = $jsonStartIndex; $i < count($lines); $i++) {
+            
+            // Check if output starts with "ERROR:"
+            if (strpos(trim($outputStr), 'ERROR:') === 0) {
+                throw new Exception(trim($outputStr));
+            }
+            
+            // Check for PHP errors or warnings in output
+            if (preg_match('/PHP (Fatal error|Parse error|Warning|Notice):/i', $outputStr)) {
+                throw new Exception("PHP error in script: " . $outputStr);
+            }
+            
+            // Parse JSON output from stdout
+            // The script outputs JSON to stdout, but debug messages go to stderr
+            // However, when we capture 2>&1, they're mixed. We need to extract the JSON.
+            
+            // Try to find JSON object in the output
+            // Look for the last occurrence of a complete JSON object
+            $jsonOutput = '';
+            $lines = explode("\n", $outputStr);
+            $jsonStartIndex = -1;
+            $braceCount = 0;
+            
+            // Find where JSON starts (first line with {)
+            for ($i = 0; $i < count($lines); $i++) {
                 $trimmed = trim($lines[$i]);
-                $jsonLines[] = $trimmed;
-                $braceCount += substr_count($trimmed, '{') - substr_count($trimmed, '}');
-                if ($braceCount === 0 && !empty($trimmed)) {
-                    // Complete JSON object found
+                if (strpos($trimmed, '{') !== false) {
+                    $jsonStartIndex = $i;
                     break;
                 }
             }
-            $jsonOutput = implode("\n", $jsonLines);
+            
+            if ($jsonStartIndex >= 0) {
+                // Collect lines from JSON start to end
+                $jsonLines = [];
+                for ($i = $jsonStartIndex; $i < count($lines); $i++) {
+                    $trimmed = trim($lines[$i]);
+                    $jsonLines[] = $trimmed;
+                    $braceCount += substr_count($trimmed, '{') - substr_count($trimmed, '}');
+                    if ($braceCount === 0 && !empty($trimmed)) {
+                        // Complete JSON object found
+                        break;
+                    }
+                }
+                $jsonOutput = implode("\n", $jsonLines);
+            }
+            
+            // If we still don't have JSON, try parsing the whole output
+            if (empty($jsonOutput)) {
+                $jsonOutput = trim($outputStr);
+            }
+            
+            $categoryMap = json_decode($jsonOutput, true);
+            if ($categoryMap === null || !is_array($categoryMap)) {
+                $jsonError = json_last_error_msg();
+                throw new Exception("Failed to parse category map from script output. JSON error: {$jsonError}. Output was: " . substr($outputStr, 0, 1000));
+            }
+            
+            $this->cli->success('Created ' . count($categoryMap) . ' categories');
+            return $categoryMap;
+        } finally {
+            // Clean up temporary file if we created one
+            if ($tempRecipePath !== null && file_exists($tempRecipePath)) {
+                unlink($tempRecipePath);
+            }
         }
-        
-        // If we still don't have JSON, try parsing the whole output
-        if (empty($jsonOutput)) {
-            $jsonOutput = trim($outputStr);
-        }
-        
-        $categoryMap = json_decode($jsonOutput, true);
-        if ($categoryMap === null || !is_array($categoryMap)) {
-            $jsonError = json_last_error_msg();
-            throw new Exception("Failed to parse category map from script output. JSON error: {$jsonError}. Output was: " . substr($outputStr, 0, 1000));
-        }
-        
-        $this->cli->success('Created ' . count($categoryMap) . ' categories');
-        return $categoryMap;
     }
 
     /**
@@ -377,6 +408,57 @@ class RestoreData extends AbstractService {
             throw new Exception("File not found: {$resolvedPath} (resolved from: {$path})");
         }
         return $resolvedPath;
+    }
+
+    /**
+     * Create a temporary recipe file with resolved restoreStructure data
+     * This is needed when restoreStructure was downloaded from a URL
+     * 
+     * @param Recipe $recipe The recipe object with resolved restoreStructure
+     * @param string $originalRecipePath Path to the original recipe file
+     * @return string|null Path to temporary file, or null if not needed
+     */
+    private function createTempRecipeWithResolvedStructure(Recipe $recipe, string $originalRecipePath): ?string {
+        // Only create temp file if restoreStructure exists and is a RestoreStructure object
+        // (not a string URL, which means it was already resolved)
+        if ($recipe->restoreStructure === null || is_string($recipe->restoreStructure)) {
+            return null; // No need for temp file
+        }
+
+        // Read original recipe file
+        $recipeContent = file_get_contents($originalRecipePath);
+        if ($recipeContent === false) {
+            throw new Exception("Failed to read recipe file: {$originalRecipePath}");
+        }
+
+        $recipeData = json_decode($recipeContent, true);
+        if ($recipeData === null) {
+            throw new Exception("Failed to parse recipe JSON: {$originalRecipePath}");
+        }
+
+        // Convert RestoreStructure object to array for JSON encoding
+        $restoreStructureArray = [
+            'users' => $recipe->restoreStructure->users,
+            'courseCategories' => $recipe->restoreStructure->courseCategories,
+        ];
+
+        // Replace restoreStructure in recipe data
+        $recipeData['restoreStructure'] = $restoreStructureArray;
+
+        // Create temporary file
+        $tempFile = tempnam(sys_get_temp_dir(), 'mchef_recipe_');
+        if ($tempFile === false) {
+            throw new Exception("Failed to create temporary recipe file");
+        }
+
+        // Write updated recipe data to temp file
+        $jsonContent = json_encode($recipeData, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        if (file_put_contents($tempFile, $jsonContent) === false) {
+            unlink($tempFile);
+            throw new Exception("Failed to write temporary recipe file");
+        }
+
+        return $tempFile;
     }
 
     /**

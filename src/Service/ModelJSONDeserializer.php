@@ -186,6 +186,38 @@ final class ModelJSONDeserializer extends AbstractService {
      * Process value based on reflection type
      */
     private function processValueByType(mixed $value, \ReflectionType $type): mixed {
+        // Handle union types (e.g., RestoreStructure|string|null)
+        if ($type instanceof \ReflectionUnionType) {
+            $types = $type->getTypes();
+            
+            // Try each type in the union to find a match
+            foreach ($types as $unionType) {
+                if ($unionType instanceof \ReflectionNamedType) {
+                    $typeName = $unionType->getName();
+                    
+                    // Skip null type - we'll handle it separately
+                    if ($typeName === 'null' && $value === null) {
+                        return null;
+                    }
+                    
+                    // If value is a string and type allows string, pass it through
+                    if ($typeName === 'string' && is_string($value)) {
+                        return $value;
+                    }
+                    
+                    // If value is an array/object and type is a model class, deserialize it
+                    if (class_exists($typeName) && is_subclass_of($typeName, AbstractModel::class)) {
+                        if (is_array($value) || is_object($value)) {
+                            return $this->deserializeData($value, $typeName);
+                        }
+                    }
+                }
+            }
+            
+            // If no type matched, return value as-is (for backward compatibility)
+            return $value;
+        }
+        
         if ($type instanceof \ReflectionNamedType) {
             $typeName = $type->getName();
 

@@ -54,12 +54,9 @@ class RecipeService extends AbstractService {
      * Handle restoreStructure URL - if restoreStructure is a string URL, download and parse it
      */
     private function handleRestoreStructureUrl(Recipe $recipe, string $filePath): void {
-        // First, check if restoreStructure was parsed as a string (URL)
-        // We need to check the raw JSON to see if it's a string
-        $jsonData = json_decode(file_get_contents($filePath), true);
-        
-        if (isset($jsonData['restoreStructure']) && is_string($jsonData['restoreStructure'])) {
-            $restoreStructureUrl = $jsonData['restoreStructure'];
+        // Check if restoreStructure is a string (URL)
+        if (is_string($recipe->restoreStructure)) {
+            $restoreStructureUrl = $recipe->restoreStructure;
             
             if ($this->isUrl($restoreStructureUrl)) {
                 $this->cli->notice('Downloading restore structure from URL: ' . $restoreStructureUrl);
