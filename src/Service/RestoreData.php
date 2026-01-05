@@ -3,17 +3,12 @@
 namespace App\Service;
 
 use App\Model\Recipe;
-use App\Model\RestoreStructure;
-use App\Traits\ExecTrait;
-use splitbrain\phpcli\Exception;
 
 class RestoreData extends AbstractService {
 
-    use ExecTrait;
-
     // Dependencies
     private Moodle $moodleService;
-    private File $fileService;
+    private Docker $dockerService;
 
     final public static function instance(): RestoreData {
         return self::setup_singleton();
@@ -56,59 +51,22 @@ class RestoreData extends AbstractService {
         $csvPath = $this->resolveFilePath($usersPath, $recipeDir);
 
         // Copy CSV to container if it's a local file
+        $containerCsvPath = '/tmp/users.csv';
         if (!$this->isUrl($usersPath)) {
-            $containerCsvPath = '/tmp/users.csv';
-            $cmd = sprintf(
-                'docker cp %s %s:%s',
-                escapeshellarg($csvPath),
-                escapeshellarg($moodleContainer),
-                escapeshellarg($containerCsvPath)
-            );
-            $this->exec($cmd, "Failed to copy users CSV to container");
+            $this->dockerService->copyFileToContainer($csvPath, $moodleContainer, $containerCsvPath);
         } else {
             // Download file inside container
-            $containerCsvPath = '/tmp/users.csv';
-            $cmd = sprintf(
-                'docker exec %s bash -c "curl -L --fail --silent --show-error -o %s %s"',
-                escapeshellarg($moodleContainer),
-                escapeshellarg($containerCsvPath),
-                escapeshellarg($usersPath)
-            );
-            $this->exec($cmd, "Failed to download users CSV in container");
-            
-            // Verify file was downloaded and has content
-            $verifyCmd = sprintf(
-                'docker exec %s bash -c "test -s %s || exit 1"',
-                escapeshellarg($moodleContainer),
-                escapeshellarg($containerCsvPath)
-            );
-            $this->exec($verifyCmd, "Downloaded CSV file is empty or does not exist");
+            $this->dockerService->downloadFileInContainer($moodleContainer, $usersPath, $containerCsvPath);
             
             // Normalize the CSV file: remove BOM, convert line endings to Unix format
-            // First remove BOM if present, then convert CRLF to LF
-            $normalizeCmd = sprintf(
-                'docker exec %s bash -c "sed -i \'1s/^\\xEF\\xBB\\xBF//\' %s && dos2unix %s 2>/dev/null || sed -i \'s/\\r$//\' %s"',
-                escapeshellarg($moodleContainer),
-                escapeshellarg($containerCsvPath),
-                escapeshellarg($containerCsvPath),
-                escapeshellarg($containerCsvPath)
-            );
-            $this->exec($normalizeCmd, "Failed to normalize users CSV file");
+            $this->dockerService->normalizeCsvFileInContainer($moodleContainer, $containerCsvPath);
         }
 
         // Determine upload script path based on Moodle version
         $uploadScriptPath = $this->getUploadUserScriptPath($recipe, $moodlePath);
 
-        // Execute upload users CLI script
-        $cmd = sprintf(
-            'docker exec %s php %s --mode=createnew --file=%s --delimiter=comma',
-            escapeshellarg($moodleContainer),
-            escapeshellarg($uploadScriptPath),
-            escapeshellarg($containerCsvPath)
-        );
-
         $this->cli->notice('Uploading users...');
-        $this->execPassthru($cmd, "Failed to upload users");
+        $this->dockerService->executePhpScriptPassthru($moodleContainer, $uploadScriptPath, ['--mode=createnew', "--file={$containerCsvPath}", '--delimiter=comma']);
         $this->cli->success('Users uploaded successfully.');
     }
 
@@ -153,100 +111,18 @@ class RestoreData extends AbstractService {
         try {
             // Copy recipe file to container
             $containerRecipePath = '/tmp/recipe.json';
-            $cmd = sprintf(
-                'docker cp %s %s:%s',
-                escapeshellarg($recipeFileToUse),
-                escapeshellarg($moodleContainer),
-                escapeshellarg($containerRecipePath)
-            );
-            $this->exec($cmd, "Failed to copy recipe file to container");
+            $this->dockerService->copyFileToContainer($recipeFileToUse, $moodleContainer, $containerRecipePath);
 
             // Copy the CLI script to container
-            $cmd = sprintf(
-                'docker cp %s %s:%s',
-                escapeshellarg($sourceScript),
-                escapeshellarg($moodleContainer),
-                escapeshellarg($scriptPath)
-            );
-            $this->exec($cmd, "Failed to copy CLI script to container");
-
-            // Execute the CLI script with recipe file path via environment variable
-            $cmd = sprintf(
-                'docker exec -e MCHEF_RECIPE_PATH=%s %s php %s',
-                escapeshellarg($containerRecipePath),
-                escapeshellarg($moodleContainer),
-                escapeshellarg($scriptPath)
-            );
+            $this->dockerService->copyFileToContainer($sourceScript, $moodleContainer, $scriptPath);
 
             $this->cli->info("Executing category creation script...");
             
-            // Capture both stdout and stderr
-            $cmdWithStderr = $cmd . ' 2>&1';
+            // Execute the CLI script with recipe file path via environment variable
+            list($outputStr, $returnVar) = $this->dockerService->executeInContainerWithEnv($moodleContainer, 'MCHEF_RECIPE_PATH', $containerRecipePath, $scriptPath);
             
-            $output = [];
-            $returnVar = 0;
-            exec($cmdWithStderr, $output, $returnVar);
-            $outputStr = implode("\n", $output);
-            
-            if ($returnVar !== 0) {
-                throw new Exception("Failed to create categories - script returned exit code {$returnVar}. Output: " . substr($outputStr, 0, 2000));
-            }
-            
-            // Check if output starts with "ERROR:"
-            if (strpos(trim($outputStr), 'ERROR:') === 0) {
-                throw new Exception(trim($outputStr));
-            }
-            
-            // Check for PHP errors or warnings in output
-            if (preg_match('/PHP (Fatal error|Parse error|Warning|Notice):/i', $outputStr)) {
-                throw new Exception("PHP error in script: " . $outputStr);
-            }
-            
-            // Parse JSON output from stdout
-            // The script outputs JSON to stdout, but debug messages go to stderr
-            // However, when we capture 2>&1, they're mixed. We need to extract the JSON.
-            
-            // Try to find JSON object in the output
-            // Look for the last occurrence of a complete JSON object
-            $jsonOutput = '';
-            $lines = explode("\n", $outputStr);
-            $jsonStartIndex = -1;
-            $braceCount = 0;
-            
-            // Find where JSON starts (first line with {)
-            for ($i = 0; $i < count($lines); $i++) {
-                $trimmed = trim($lines[$i]);
-                if (strpos($trimmed, '{') !== false) {
-                    $jsonStartIndex = $i;
-                    break;
-                }
-            }
-            
-            if ($jsonStartIndex >= 0) {
-                // Collect lines from JSON start to end
-                $jsonLines = [];
-                for ($i = $jsonStartIndex; $i < count($lines); $i++) {
-                    $trimmed = trim($lines[$i]);
-                    $jsonLines[] = $trimmed;
-                    $braceCount += substr_count($trimmed, '{') - substr_count($trimmed, '}');
-                    if ($braceCount === 0 && !empty($trimmed)) {
-                        // Complete JSON object found
-                        break;
-                    }
-                }
-                $jsonOutput = implode("\n", $jsonLines);
-            }
-            
-            // If we still don't have JSON, try parsing the whole output
-            if (empty($jsonOutput)) {
-                $jsonOutput = trim($outputStr);
-            }
-            
-            $categoryMap = json_decode($jsonOutput, true);
-            if ($categoryMap === null || !is_array($categoryMap)) {
-                $jsonError = json_last_error_msg();
-                throw new Exception("Failed to parse category map from script output. JSON error: {$jsonError}. Output was: " . substr($outputStr, 0, 1000));
-            }
+            $this->validateScriptOutput($outputStr, $returnVar);
+            $categoryMap = $this->parseCategoryMapFromOutput($outputStr);
             
             $this->cli->success('Created ' . count($categoryMap) . ' categories');
             return $categoryMap;
@@ -337,37 +213,18 @@ class RestoreData extends AbstractService {
         // Copy or download MBZ to container
         if (!$this->isUrl($backupPath)) {
             $containerMbzPath = '/tmp/' . basename($mbzPath);
-            $cmd = sprintf(
-                'docker cp %s %s:%s',
-                escapeshellarg($mbzPath),
-                escapeshellarg($moodleContainer),
-                escapeshellarg($containerMbzPath)
-            );
-            $this->exec($cmd, "Failed to copy MBZ to container");
+            $this->dockerService->copyFileToContainer($mbzPath, $moodleContainer, $containerMbzPath);
         } else {
             // Download file inside container
             $containerMbzPath = '/tmp/' . basename(parse_url($backupPath, PHP_URL_PATH) ?: 'backup.mbz');
-            $cmd = sprintf(
-                'docker exec %s bash -c "curl -L -o %s %s"',
-                escapeshellarg($moodleContainer),
-                escapeshellarg($containerMbzPath),
-                escapeshellarg($backupPath)
-            );
-            $this->exec($cmd, "Failed to download MBZ in container");
+            $this->dockerService->downloadFileInContainer($moodleContainer, $backupPath, $containerMbzPath);
         }
 
         // Restore course using Moodle CLI
         $restoreScriptPath = $moodlePath . '/admin/cli/restore_backup.php';
-        $cmd = sprintf(
-            'docker exec %s php %s --file=%s --categoryid=%d',
-            escapeshellarg($moodleContainer),
-            escapeshellarg($restoreScriptPath),
-            escapeshellarg($containerMbzPath),
-            $categoryId
-        );
-
+        
         $this->cli->notice("Restoring course to category ID: {$categoryId}");
-        $this->execPassthru($cmd, "Failed to restore course from {$backupPath}");
+        $this->dockerService->executePhpScriptPassthru($moodleContainer, $restoreScriptPath, ["--file={$containerMbzPath}", "--categoryid={$categoryId}"]);
         $this->cli->success("Course restored successfully from {$backupPath}");
     }
 
@@ -397,7 +254,7 @@ class RestoreData extends AbstractService {
         // Check if it's an absolute path
         if (strpos($path, '/') === 0 || (PHP_OS_FAMILY === 'Windows' && preg_match('/^[A-Z]:\\\\/', $path))) {
             if (!file_exists($path)) {
-                throw new Exception("File not found: {$path}");
+                throw new \Exception("File not found: {$path}");
             }
             return $path;
         }
@@ -405,7 +262,7 @@ class RestoreData extends AbstractService {
         // Relative path - resolve relative to recipe directory
         $resolvedPath = $recipeDir . DIRECTORY_SEPARATOR . $path;
         if (!file_exists($resolvedPath)) {
-            throw new Exception("File not found: {$resolvedPath} (resolved from: {$path})");
+            throw new \Exception("File not found: {$resolvedPath} (resolved from: {$path})");
         }
         return $resolvedPath;
     }
@@ -428,13 +285,10 @@ class RestoreData extends AbstractService {
         // Read original recipe file
         $recipeContent = file_get_contents($originalRecipePath);
         if ($recipeContent === false) {
-            throw new Exception("Failed to read recipe file: {$originalRecipePath}");
+            throw new \Exception("Failed to read recipe file: {$originalRecipePath}");
         }
 
-        $recipeData = json_decode($recipeContent, true);
-        if ($recipeData === null) {
-            throw new Exception("Failed to parse recipe JSON: {$originalRecipePath}");
-        }
+        $recipeData = $this->decodeJsonSafely($recipeContent, "recipe JSON from {$originalRecipePath}");
 
         // Convert RestoreStructure object to array for JSON encoding
         $restoreStructureArray = [
@@ -448,38 +302,129 @@ class RestoreData extends AbstractService {
         // Create temporary file
         $tempFile = tempnam(sys_get_temp_dir(), 'mchef_recipe_');
         if ($tempFile === false) {
-            throw new Exception("Failed to create temporary recipe file");
+            throw new \Exception("Failed to create temporary recipe file");
         }
 
         // Write updated recipe data to temp file
-        $jsonContent = json_encode($recipeData, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        $jsonContent = $this->encodeJsonSafely($recipeData, "temporary recipe file");
         if (file_put_contents($tempFile, $jsonContent) === false) {
             unlink($tempFile);
-            throw new Exception("Failed to write temporary recipe file");
+            throw new \Exception("Failed to write temporary recipe file");
         }
 
         return $tempFile;
     }
 
+
     /**
-     * Download a file from URL
+     * Safely decode JSON string to array
+     * 
+     * @param string $json JSON string to decode
+     * @param string $errorContext Context for error messages
+     * @return array Decoded array
+     * @throws Exception If JSON decoding fails
      */
-    private function downloadFile(string $url): string {
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // For development - consider making configurable
-
-        $content = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $error = curl_error($ch);
-        curl_close($ch);
-
-        if ($content === false || $httpCode !== 200) {
-            throw new Exception("Failed to download file from {$url}: HTTP {$httpCode} - {$error}");
+    private function decodeJsonSafely(string $json, string $errorContext = 'JSON'): array {
+        $decoded = json_decode($json, true);
+        if ($decoded === null && json_last_error() !== JSON_ERROR_NONE) {
+            $jsonError = json_last_error_msg();
+            throw new \Exception("Failed to decode {$errorContext}: {$jsonError}");
         }
+        if (!is_array($decoded)) {
+            throw new \Exception("Failed to decode {$errorContext}: expected array, got " . gettype($decoded));
+        }
+        return $decoded;
+    }
 
-        return $content;
+    /**
+     * Safely encode array to JSON string
+     * 
+     * @param array $data Data to encode
+     * @param string $errorContext Context for error messages
+     * @return string JSON string
+     * @throws Exception If JSON encoding fails
+     */
+    private function encodeJsonSafely(array $data, string $errorContext = 'JSON'): string {
+        $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        if ($json === false) {
+            $jsonError = json_last_error_msg();
+            throw new \Exception("Failed to encode {$errorContext}: {$jsonError}");
+        }
+        return $json;
+    }
+
+    /**
+     * Validate script output and check for errors
+     * 
+     * @param string $output Script output
+     * @param int $returnVar Return code from script
+     * @throws Exception If errors are found in output
+     */
+    private function validateScriptOutput(string $output, int $returnVar): void {
+        if ($returnVar !== 0) {
+            throw new \Exception("Failed to create categories - script returned exit code {$returnVar}. Output: " . substr($output, 0, 2000));
+        }
+        
+        // Check if output starts with "ERROR:"
+        if (strpos(trim($output), 'ERROR:') === 0) {
+            throw new \Exception(trim($output));
+        }
+        
+        // Check for PHP errors or warnings in output
+        if (preg_match('/PHP (Fatal error|Parse error|Warning|Notice):/i', $output)) {
+            throw new \Exception("PHP error in script: " . $output);
+        }
+    }
+
+    /**
+     * Extract JSON string from mixed output (handles cases where JSON is mixed with other output)
+     * 
+     * @param string $output Mixed output containing JSON
+     * @return string Extracted JSON string
+     */
+    private function extractJsonFromOutput(string $output): string {
+        $lines = explode("\n", $output);
+        $jsonStartIndex = -1;
+        $braceCount = 0;
+        
+        // Find where JSON starts (first line with {)
+        for ($i = 0; $i < count($lines); $i++) {
+            $trimmed = trim($lines[$i]);
+            if (strpos($trimmed, '{') !== false) {
+                $jsonStartIndex = $i;
+                break;
+            }
+        }
+        
+        if ($jsonStartIndex >= 0) {
+            // Collect lines from JSON start to end
+            $jsonLines = [];
+            for ($i = $jsonStartIndex; $i < count($lines); $i++) {
+                $trimmed = trim($lines[$i]);
+                $jsonLines[] = $trimmed;
+                $braceCount += substr_count($trimmed, '{') - substr_count($trimmed, '}');
+                if ($braceCount === 0 && !empty($trimmed)) {
+                    // Complete JSON object found
+                    break;
+                }
+            }
+            return implode("\n", $jsonLines);
+        }
+        
+        // If we still don't have JSON, try parsing the whole output
+        return trim($output);
+    }
+
+    /**
+     * Parse category map from script output
+     * 
+     * @param string $output Script output containing JSON
+     * @return array Map of category names to IDs
+     * @throws Exception If parsing fails
+     */
+    private function parseCategoryMapFromOutput(string $output): array {
+        $jsonOutput = $this->extractJsonFromOutput($output);
+        return $this->decodeJsonSafely($jsonOutput, "category map from script output");
     }
 
     /**

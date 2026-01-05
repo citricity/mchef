@@ -386,4 +386,117 @@ class Docker extends AbstractService {
         $projectName = basename($projectDir);
         return "{$projectName}_{$serviceName}";
     }
+
+    /**
+     * Copy a file from host to a Docker container
+     * 
+     * @param string $sourcePath Source file path on host
+     * @param string $container Container name
+     * @param string $destinationPath Destination path inside container (including filename)
+     * @throws Exception If copy fails
+     */
+    public function copyFileToContainer(string $sourcePath, string $container, string $destinationPath): void {
+        $cmd = sprintf(
+            'docker cp %s %s:%s',
+            escapeshellarg($sourcePath),
+            escapeshellarg($container),
+            escapeshellarg($destinationPath)
+        );
+        $this->exec($cmd, "Failed to copy file to container");
+    }
+
+    /**
+     * Download a file from URL to a specific path inside a Docker container using curl
+     * 
+     * @param string $container Container name
+     * @param string $url URL to download from
+     * @param string $destinationPath Full path inside container (including filename)
+     * @throws Exception If download fails
+     */
+    public function downloadFileInContainer(string $container, string $url, string $destinationPath): void {
+        $cmd = sprintf(
+            'docker exec %s bash -c "curl -L --fail --silent --show-error -o %s %s"',
+            escapeshellarg($container),
+            escapeshellarg($destinationPath),
+            escapeshellarg($url)
+        );
+        $this->exec($cmd, "Failed to download file to container");
+
+        // Verify file was downloaded and has content
+        $verifyCmd = sprintf(
+            'docker exec %s bash -c "test -s %s || exit 1"',
+            escapeshellarg($container),
+            escapeshellarg($destinationPath)
+        );
+        $this->exec($verifyCmd, "Downloaded file is empty or does not exist");
+    }
+
+    /**
+     * Normalize a CSV file in Docker container: remove BOM, convert line endings to Unix format
+     * 
+     * @param string $container Container name
+     * @param string $filePath Path to CSV file inside container
+     * @throws Exception If normalization fails
+     */
+    public function normalizeCsvFileInContainer(string $container, string $filePath): void {
+        $normalizeCmd = sprintf(
+            'docker exec %s bash -c "sed -i \'1s/^\\xEF\\xBB\\xBF//\' %s && dos2unix %s 2>/dev/null || sed -i \'s/\\r$//\' %s"',
+            escapeshellarg($container),
+            escapeshellarg($filePath),
+            escapeshellarg($filePath),
+            escapeshellarg($filePath)
+        );
+        $this->exec($normalizeCmd, "Failed to normalize CSV file");
+    }
+
+    /**
+     * Execute a PHP script in Docker container with environment variable and capture output
+     * 
+     * @param string $container Container name
+     * @param string $envVarName Environment variable name (e.g., 'MCHEF_RECIPE_PATH')
+     * @param string $envVarValue Environment variable value
+     * @param string $scriptPath Path to PHP script in container
+     * @return array Array with output string at index 0 and returnVar at index 1
+     */
+    public function executeInContainerWithEnv(string $container, string $envVarName, string $envVarValue, string $scriptPath): array {
+        $cmd = sprintf(
+            'docker exec -e %s=%s %s php %s',
+            escapeshellarg($envVarName),
+            escapeshellarg($envVarValue),
+            escapeshellarg($container),
+            escapeshellarg($scriptPath)
+        );
+        // Capture both stdout and stderr
+        $cmdWithStderr = $cmd . ' 2>&1';
+        $output = [];
+        $returnVar = 0;
+        exec($cmdWithStderr, $output, $returnVar);
+        
+        return [
+            implode("\n", $output),
+            $returnVar
+        ];
+    }
+
+    /**
+     * Execute a PHP script in Docker container and pass output through (for interactive scripts)
+     * 
+     * @param string $container Container name
+     * @param string $scriptPath Path to PHP script in container
+     * @param array $arguments Additional arguments to pass to the script
+     * @throws Exception If execution fails
+     */
+    public function executePhpScriptPassthru(string $container, string $scriptPath, array $arguments = []): void {
+        $argsString = '';
+        if (!empty($arguments)) {
+            $argsString = ' ' . implode(' ', array_map('escapeshellarg', $arguments));
+        }
+        $cmd = sprintf(
+            'docker exec %s php %s%s',
+            escapeshellarg($container),
+            escapeshellarg($scriptPath),
+            $argsString
+        );
+        $this->execPassthru($cmd, "Failed to execute PHP script");
+    }
 }
