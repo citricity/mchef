@@ -14,6 +14,7 @@ class MoodleInstall extends AbstractService {
     private Configurator $configuratorService;
     private Moodle $moodleService;
     private SampleData $sampleDataService;
+    private RestoreData $restoreDataService;
 
     final public static function instance(): MoodleInstall {
         return self::setup_singleton();
@@ -36,6 +37,7 @@ class MoodleInstall extends AbstractService {
         $this->waitForDatabase($dbContainer);
         $this->installDatabase($recipe, $moodleContainer, $dbContainer);
         $this->generateSampleData($recipe, $moodleContainer);
+        $this->processRestoreStructure($recipe, $moodleContainer);
         $this->cli->success('Moodle installation completed.');
     }
 
@@ -131,6 +133,19 @@ class MoodleInstall extends AbstractService {
     private function generateSampleData(Recipe $recipe, string $moodleContainer): void {
         if (!empty($recipe->sampleData)) {
             $this->sampleDataService->generateSampleData($recipe, $moodleContainer);
+        }
+    }
+
+    /**
+     * Process restore structure if configured in recipe
+     * 
+     * @param Recipe $recipe The recipe containing restore structure configuration
+     * @param string $moodleContainer The name of the Moodle container
+     * @return void
+     */
+    private function processRestoreStructure(Recipe $recipe, string $moodleContainer): void {
+        if (!empty($recipe->restoreStructure)) {
+            $this->restoreDataService->processRestoreStructure($recipe, $moodleContainer);
         }
     }
 }
