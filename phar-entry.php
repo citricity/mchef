@@ -19,7 +19,7 @@ if (!file_exists($vendor_path)) {
 }
 
 if (!file_exists($vendor_path)) {
-    echo 'Autoloader not found. This PHAR may be corrupted.';
+    fwrite(STDERR, "Autoloader not found. This PHAR may be corrupted.\n");
     exit(1);
 }
 

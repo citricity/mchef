@@ -30,10 +30,7 @@ try {
     
     // Add all PHP files from src/
     $phar->buildFromDirectory($sourceDir, '/\.php$/');
-    
-    // Add composer autoloader and vendor files
-    $phar->addFile($sourceDir . '/vendor/autoload.php', 'vendor/autoload.php');
-    
+   
     // Add vendor directory (excluding dev dependencies as they're already excluded by composer install --no-dev)
     $iterator = new RecursiveIteratorIterator(
         new RecursiveDirectoryIterator($sourceDir . '/vendor', RecursiveDirectoryIterator::SKIP_DOTS),
@@ -57,6 +54,6 @@ try {
     echo "Size: " . number_format(filesize($pharFile)) . " bytes\n";
     
 } catch (Exception $e) {
-    echo "Error building PHAR: " . $e->getMessage() . "\n";
+    fwrite(STDERR, "Error building PHAR: " . $e->getMessage() . "\n");
     exit(1);
 }
