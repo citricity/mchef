@@ -108,6 +108,9 @@ class Main extends AbstractService {
     }
 
     public function getDockerPath() {
+        if (isset(StaticVars::$ciDockerPath)) {
+            return StaticVars::$ciDockerPath;
+        }
         return $this->getChefPath().'/docker';
     }
 
@@ -164,7 +167,7 @@ class Main extends AbstractService {
         $this->cli->notice('Created docker compose file at '.$ymlPath);
 
         // Compose the command
-        $dockerBuildKit = $dockerData->reposUseSsh ? 'DOCKER_BUILDKIT=1 ' : '';
+        $dockerBuildKit = $dockerData->reposUseSsh ? 'DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 ' : '';
         $cmd = "{$dockerBuildKit}docker compose --project-directory \"{$this->getChefPath()}/docker\" -f \"$ymlPath\" up -d --force-recreate --build";
         $this->execPassthru($cmd, "Error starting docker containers - try pruning with 'docker builder prune' OR 'docker system prune' (note 'docker system prune' will destroy all non running container images)");
 
@@ -349,20 +352,19 @@ class Main extends AbstractService {
         }
 
         $this->moodleConfigService->processConfigFile($recipe);
-
-        if ($recipe->includeXdebug || $recipe->developer) {
-            try {
-                $xdebugContents = $this->twig->render('@docker/install-xdebug.sh.twig', ['mode' => $recipe->xdebugMode ?? 'debug']);
-            } catch (\Exception $e) {
-                throw new Exception('Failed to parse install-xdebug.sh template: '.$e->getMessage());
-            }
-        }
         $scriptsAssetsPath = $assetsPath.'/scripts';
         if (!file_exists($scriptsAssetsPath)) {
             mkdir($scriptsAssetsPath, 0755, true);
         }
-        file_put_contents($scriptsAssetsPath.'/install-xdebug.sh', $xdebugContents);
 
+        if (!StaticVars::$ciMode && ($recipe->includeXdebug || $recipe->developer)) {
+            try {
+                $xdebugContents = $this->twig->render('@docker/install-xdebug.sh.twig', ['mode' => $recipe->xdebugMode ?? 'debug']);
+            } catch (\Exception $e) {
+                throw new Exception('Failed to parse install-xdebug.sh template: '.$e->getMessage());
+            }        
+            file_put_contents($scriptsAssetsPath.'/install-xdebug.sh', $xdebugContents);
+        }
     }
 
     public function getRegisteredUuid(string $chefPath): ?string {
@@ -392,6 +394,47 @@ class Main extends AbstractService {
         return $this->dockerData;
     }
 
+    private function getPluginsForDocker(Recipe $recipe): array {
+        $pluginsForDocker = [];
+        if (empty($recipe->plugins)) {
+            return $pluginsForDocker;
+        }
+        foreach ($recipe->plugins as $plugin) {
+            $recipePlugin = $this->pluginsService->extractRepoInfoFromPlugin($plugin);
+
+            // Only include GitHub repositories for cloning
+            if (strpos($recipePlugin->repo, 'https://github.com') === 0 || strpos($recipePlugin->repo, 'git@github.com') === 0) {
+                // Find plugin info to get the Moodle path
+                if ($this->pluginInfo && isset($this->pluginInfo->plugins)) {
+                    foreach ($this->pluginInfo->plugins as $pluginInfo) {
+                        if (is_string($pluginInfo->recipeSrc)) {
+                            if ($pluginInfo->recipeSrc !== $recipePlugin->repo) {
+                                continue;
+                            }
+                            $repo = $pluginInfo->recipeSrc;
+                            $branch = 'main'; // Default branch if not specified
+                        } elseif (is_object($pluginInfo->recipeSrc)) {
+                            if ($pluginInfo->recipeSrc->repo !== $recipePlugin->repo) {
+                                continue;
+                            }
+                            $repo = $pluginInfo->recipeSrc->repo;
+                            $branch = $pluginInfo->recipeSrc->branch;
+                        }
+
+                        $path = $pluginInfo->path;
+
+                        $pluginsForDocker[] = [
+                            'repo' => $repo,
+                            'branch' => $branch,
+                            'path' => $path
+                        ];
+                        break;
+                    }
+                }
+            }
+        }
+        return $pluginsForDocker;
+    }
     public function up(string $recipeFilePath): void {
         $recipeFilePath = OS::path($recipeFilePath);
         $this->cli->notice('Cooking up recipe '.$recipeFilePath);
@@ -436,41 +479,7 @@ class Main extends AbstractService {
 
         // Add plugin data for dockerfile shallow cloning
         if ($recipe->plugins) {
-            $pluginsForDocker = [];
-            foreach ($recipe->plugins as $plugin) {
-                $recipePlugin = $this->pluginsService->extractRepoInfoFromPlugin($plugin);
-
-                // Only include GitHub repositories for cloning
-                if (strpos($recipePlugin->repo, 'https://github.com') === 0 || strpos($recipePlugin->repo, 'git@github.com') === 0) {
-                    // Find plugin info to get the Moodle path
-                    if ($this->pluginInfo && isset($this->pluginInfo->plugins)) {
-                        foreach ($this->pluginInfo->plugins as $pluginInfo) {
-                            if (is_string($pluginInfo->recipeSrc)) {
-                                if ($pluginInfo->recipeSrc !== $recipePlugin->repo) {
-                                    continue;
-                                }
-                                $repo = $pluginInfo->recipeSrc;
-                                $branch = 'main'; // Default branch if not specified
-                            } elseif (is_object($pluginInfo->recipeSrc)) {
-                                if ($pluginInfo->recipeSrc->repo !== $recipePlugin->repo) {
-                                    continue;
-                                }
-                                $repo = $pluginInfo->recipeSrc->repo;
-                                $branch = $pluginInfo->recipeSrc->branch;
-                            }
-
-                            $path = $pluginInfo->path;
-
-                            $pluginsForDocker[] = [
-                                'repo' => $repo,
-                                'branch' => $branch,
-                                'path' => $path
-                            ];
-                            break;
-                        }
-                    }
-                }
-            }
+            $pluginsForDocker = $this->getPluginsForDocker($recipe);
             $dockerData->pluginsForDocker = $pluginsForDocker;
         }
 
@@ -618,23 +627,13 @@ class Main extends AbstractService {
         // TODO - note that CI is going to require some way to clone these repos via ssh in some cases.
         // We will need to add a SSH_KEY github env variable.
         if ($recipe->plugins && !$recipe->cloneRepoPlugins) {
-            $pluginsForDocker = [];
-            foreach ($recipe->plugins as $plugin) {
-                $recipePlugin = $this->pluginsService->extractRepoInfoFromPlugin($plugin);
-
-                // Only include GitHub repositories for cloning
-                if (strpos($recipePlugin->repo, 'https://github.com') === 0 || strpos($recipePlugin->repo, 'git@github.com') === 0) {
-                    // For CI builds, we don't need volume mounts, just the plugin info for shallow cloning
-                    $pluginsForDocker[] = [
-                        'repo' => $recipePlugin->repo,
-                        'branch' => $recipePlugin->branch,
-                        'path' => '/var/www/html' // Default path for CI builds
-                    ];
-                }
-            }
+            $pluginsForDocker = $this->getPluginsForDocker($recipe);
             $dockerData->pluginsForDocker = $pluginsForDocker;
             $dockerData->reposUseSsh = $this->pluginsReposUseSsh($recipe);
         }
+
+        $containerName = 'mc-'.($this->recipe->containerPrefix ?? 'mchef').'-moodle';
+        $dockerData->containerName = $containerName;
 
         return $dockerData;
     }
@@ -646,8 +645,10 @@ class Main extends AbstractService {
      * @param string $imageName Custom image name to tag the built image
      * @throws Exception If build fails
      */
-    public function buildDockerImage(Recipe $recipe, string $imageName): void {
+    public function buildDockerCiImage(Recipe $recipe, string $imageName): void {
         $this->cli->info("Building Docker image: {$imageName}");
+
+        StaticVars::$ciMode = true;
 
         // Set static vars for template rendering
         StaticVars::$recipe = $recipe;
@@ -655,6 +656,7 @@ class Main extends AbstractService {
         // Generate temporary project directory for build
         $buildDir = $this->getChefPath() . '/ci-build-' . uniqid();
         $dockerDir = $buildDir . '/docker';
+        StaticVars::$ciDockerPath = $dockerDir;
 
         try {
             // Create build directory
@@ -662,8 +664,20 @@ class Main extends AbstractService {
                 throw new Exception("Failed to create build directory: {$dockerDir}");
             }
 
+            // Populate assets (e.g., xdebug install script)
+            $this->populateAssets($recipe);
+
             // Prepare docker data for CI build (no volumes, production settings)
             $dockerData = $this->prepareDockerDataForCI($recipe);
+
+            try {
+                $dockerFileContents = $this->twig->render('@docker/main.dockerfile.twig', (array) $dockerData);
+            } catch (\Exception $e) {
+                throw new Exception('Failed to parse main.dockerfile template: '.$e->getMessage());
+            }
+
+            $dockerData->dockerFile = $dockerDir.'/Dockerfile';
+            file_put_contents($dockerData->dockerFile, $dockerFileContents);
 
             // Render docker-compose file for CI build
             $ymlPath = $dockerDir . '/docker-compose.yml';
@@ -671,7 +685,8 @@ class Main extends AbstractService {
             file_put_contents($ymlPath, $dockerComposeFileContents);
 
             // Build the image using docker compose
-            $this->dockerService->buildImageWithCompose($ymlPath, $imageName, $dockerDir);
+            $usesSsh = $this->pluginsReposUseSsh($recipe);
+            $this->dockerService->buildImageWithCompose($ymlPath, $dockerData, $imageName, $dockerDir, $usesSsh);
 
         } finally {
             // Clean up build directory

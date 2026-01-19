@@ -37,7 +37,7 @@ class Mysql extends AbstractDatabase implements DatabaseInterface {
             . ' -e ' . escapeshellarg($sqlQuery);
         try {
             $this->cli->info("Dropping all tables from database $dbName");
-            $this->cli->info("Command: $dbdeletecmd");
+            $this->cli->debug("Command: $dbdeletecmd");
             $dockerService->execute($dbContainer, $this->buildEscapedDockerCommand($dbdeletecmd));
             return;
         } catch (ExecFailed $e) {

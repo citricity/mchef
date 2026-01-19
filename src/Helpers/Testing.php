@@ -9,7 +9,6 @@ class Testing {
         $reflection = new \ReflectionObject($object);
         if ($reflection->hasProperty($prop)) {
             $property = $reflection->getProperty($prop);
-            $property->setAccessible(true);
             $property->setValue($object, $val);
         } else {
             throw new \Exception("Property '$prop' does not exist on object");

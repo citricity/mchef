@@ -37,7 +37,6 @@ final class SampleDataTest extends MchefTestCase {
         // Use reflection to reset and get instance
         $reflection = new \ReflectionClass(TestableSampleData::class);
         $method = $reflection->getMethod('setup_singleton');
-        $method->setAccessible(true);
         
         // Create instance with reset to clear any previous singleton
         $this->sampleDataService = $method->invoke(null, true);
@@ -47,7 +46,6 @@ final class SampleDataTest extends MchefTestCase {
         // Need to get property from parent class SampleData
         $parentReflection = new \ReflectionClass(SampleData::class);
         $property = $parentReflection->getProperty('moodleService');
-        $property->setAccessible(true);
         $property->setValue($this->sampleDataService, $this->moodleService);
         
         // Reset call log
@@ -58,7 +56,6 @@ final class SampleDataTest extends MchefTestCase {
         // Reset singleton after each test
         $reflection = new \ReflectionClass(TestableSampleData::class);
         $method = $reflection->getMethod('setup_singleton');
-        $method->setAccessible(true);
         $method->invoke(null, true);
         
         parent::tearDown();
@@ -524,7 +521,6 @@ final class SampleDataTest extends MchefTestCase {
             // Inject the new mock using reflection
             $parentReflection = new \ReflectionClass(SampleData::class);
             $property = $parentReflection->getProperty('moodleService');
-            $property->setAccessible(true);
             $property->setValue($this->sampleDataService, $moodleService);
 
             $this->sampleDataService->generateSampleData($recipe, 'test-container');

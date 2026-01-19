@@ -99,7 +99,6 @@ class PublicFolderIntegrationTest extends MchefTestCase {
     private function callRestricted($object, $method, $args = []) {
         $reflectionClass = new \ReflectionClass($object);
         $reflectionMethod = $reflectionClass->getMethod($method);
-        $reflectionMethod->setAccessible(true);
         return $reflectionMethod->invokeArgs($object, $args);
     }
 }

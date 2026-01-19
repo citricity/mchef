@@ -67,7 +67,6 @@ trait SingletonTrait {
         }
         foreach ($serviceClasses as $propName => $serviceClass) {
             $property = (new \ReflectionClass($instance))->getProperty($propName);
-            $property->setAccessible(true);
             //echo "\n Applying service class $serviceClass for ".get_class($instance);
             $property->setValue($instance, $serviceClassInstances[$propName]);
         }

@@ -48,7 +48,7 @@ class RecipeService extends AbstractService {
         $recipe->setRecipePath($filePath);
 
         return $recipe;
-    }
+    }  
 
     /**
      * Handle restoreStructure URL - if restoreStructure is a string URL, download and parse it

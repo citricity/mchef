@@ -39,19 +39,15 @@ class CICommandTest extends MchefTestCase {
         $reflection = new \ReflectionClass($this->ciCommand);
         
         $mainServiceProperty = $reflection->getProperty('mainService');
-        $mainServiceProperty->setAccessible(true);
         $mainServiceProperty->setValue($this->ciCommand, $this->main);
         
         $dockerServiceProperty = $reflection->getProperty('dockerService');
-        $dockerServiceProperty->setAccessible(true);
         $dockerServiceProperty->setValue($this->ciCommand, $this->docker);
         
         $environmentServiceProperty = $reflection->getProperty('environmentService');
-        $environmentServiceProperty->setAccessible(true);
         $environmentServiceProperty->setValue($this->ciCommand, $this->environment);
         
         $cliProperty = $reflection->getParentClass()->getProperty('cli');
-        $cliProperty->setAccessible(true);
         $cliProperty->setValue($this->ciCommand, $this->cli);
     }
 
@@ -102,7 +98,7 @@ class CICommandTest extends MchefTestCase {
             ->willReturn($mockRecipe);
         
         $this->main->expects($this->once())
-            ->method('buildDockerImage')
+            ->method('buildDockerCiImage')
             ->with($mockRecipe, 'example:v1.5.0');
         
         // Mock environment variables (none set) 
@@ -137,7 +133,7 @@ class CICommandTest extends MchefTestCase {
             ->willReturn($mockRecipe);
         
         $this->main->expects($this->once())
-            ->method('buildDockerImage')
+            ->method('buildDockerCiImage')
             ->with($mockRecipe, 'my-custom-app:v1.5.0');
         
         // Mock environment variables (all set)
@@ -160,11 +156,11 @@ class CICommandTest extends MchefTestCase {
         
         $this->docker->expects($this->once())
             ->method('tagImage')
-            ->with('my-custom-app:v1.5.0', 'https://registry.example.com/my-custom-app:v1.5.0');
+            ->with('my-custom-app:v1.5.0', 'https://registry.example.com/testuser/my-custom-app:v1.5.0');
         
         $this->docker->expects($this->once())
             ->method('pushImage')
-            ->with('https://registry.example.com/my-custom-app:v1.5.0');
+            ->with('https://registry.example.com/testuser/my-custom-app:v1.5.0');
         
         // Expect success messages
         $this->cli->expects($this->atLeastOnce())->method('info');
@@ -176,7 +172,6 @@ class CICommandTest extends MchefTestCase {
     public function testGetImageBaseNameUsesPublishTagPrefix(): void {
         $reflection = new \ReflectionClass($this->ciCommand);
         $method = $reflection->getMethod('getImageBaseName');
-        $method->setAccessible(true);
         
         $mockRecipe = $this->createMock(Recipe::class);
         $mockRecipe->publishTagPrefix = 'my-custom-prefix';
@@ -189,7 +184,6 @@ class CICommandTest extends MchefTestCase {
     public function testGetImageBaseNameFallsBackToRecipeName(): void {
         $reflection = new \ReflectionClass($this->ciCommand);
         $method = $reflection->getMethod('getImageBaseName');
-        $method->setAccessible(true);
         
         $mockRecipe = $this->createMock(Recipe::class);
         $mockRecipe->publishTagPrefix = null;
@@ -202,7 +196,6 @@ class CICommandTest extends MchefTestCase {
     public function testSanitizeImageName(): void {
         $reflection = new \ReflectionClass($this->ciCommand);
         $method = $reflection->getMethod('sanitizeImageName');
-        $method->setAccessible(true);
         
         // Test various sanitization scenarios
         $this->assertEquals('my-app', $method->invoke($this->ciCommand, 'My App!'));
@@ -216,7 +209,6 @@ class CICommandTest extends MchefTestCase {
         
         $reflection = new \ReflectionClass($this->ciCommand);
         $method = $reflection->getMethod('loadAndPrepareRecipe');
-        $method->setAccessible(true);
         
         $mockRecipe = $this->createMock(Recipe::class);
         

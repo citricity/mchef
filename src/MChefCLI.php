@@ -96,7 +96,6 @@ class MChefCLI extends CLI {
     private function getSetup(): array {
         $ref = new \ReflectionClass($this->options);
         $prop = $ref->getProperty('setup');
-        $prop->setAccessible(true);
         return $prop->getValue($this->options);
     }
 
@@ -108,11 +107,9 @@ class MChefCLI extends CLI {
         $ref   = new \ReflectionClass($this->options);
 
         $colorsProp = $ref->getProperty('colors');
-        $colorsProp->setAccessible(true);
         $colors = $colorsProp->getValue($this->options);
 
         $newlineProp = $ref->getProperty('newline');
-        $newlineProp->setAccessible(true);
         $newline = $newlineProp->getValue($this->options);
 
         $bin = $this->options->getBin();

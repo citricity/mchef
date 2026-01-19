@@ -46,23 +46,18 @@ class DestroyCommandTest extends MchefTestCase {
         $reflection = new \ReflectionClass($this->destroyCommand);
         
         $cliProperty = $reflection->getProperty('cli');
-        $cliProperty->setAccessible(true);
         $cliProperty->setValue($this->destroyCommand, $this->cli);
         
         $configuratorProperty = $reflection->getProperty('configuratorService');
-        $configuratorProperty->setAccessible(true);
         $configuratorProperty->setValue($this->destroyCommand, $this->configurator);
         
         $dockerProperty = $reflection->getProperty('dockerService');
-        $dockerProperty->setAccessible(true);
         $dockerProperty->setValue($this->destroyCommand, $this->docker);
         
         $mainProperty = $reflection->getProperty('mainService');
-        $mainProperty->setAccessible(true);
         $mainProperty->setValue($this->destroyCommand, $this->main);
         
         $fileProperty = $reflection->getProperty('fileService');
-        $fileProperty->setAccessible(true);
         $fileProperty->setValue($this->destroyCommand, $this->file);
     }
 
@@ -159,7 +154,6 @@ class DestroyCommandTest extends MchefTestCase {
         // Test the validation method directly (now inherited from AbstractCommand)
         $reflection = new \ReflectionClass($this->destroyCommand);
         $method = $reflection->getMethod('isValidInstanceName');
-        $method->setAccessible(true);
         
         // Valid names
         $this->assertTrue($method->invoke($this->destroyCommand, 'test'));

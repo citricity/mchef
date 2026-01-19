@@ -34,7 +34,7 @@ final class CopySrc extends AbstractCommand {
         return self::setup_singleton();
     }
 
-    private function copySrc(RegistryInstance $instance): void {
+    private function copySrc(RegistryInstance $instance): void {        
         $this->recipe = $this->mainService->getRecipe($instance->recipePath);
         $moodleContainer = $this->mainService->getDockerMoodleContainerName();
 

@@ -4,6 +4,7 @@ namespace App\Tests;
 
 use App\Helpers\SplitbrainWrapper;
 use App\Helpers\Testing;
+use App\Helpers\TestingHelpers;
 use App\Interfaces\SingletonInterface;
 use App\MChefCLI;
 use App\StaticVars;
@@ -13,11 +14,19 @@ class MchefTestCase extends \PHPUnit\Framework\TestCase {
     protected MockObject $cli;
     protected function setUp(): void {
         parent::setUp();
+        
+        TestingHelpers::setIsPHPunit(true);
+        
         SplitbrainWrapper::suppressDeprecationWarnings(function() {
             $mockCli = $this->createMock(\App\MChefCLI::class);
             $this->cli = $mockCli;
             StaticVars::$cli = $mockCli;
         });
+    }
+
+    protected function tearDown(): void {
+        TestingHelpers::deleteTestDir();
+        parent::tearDown();
     }
 
     protected function setRestrictedProperty(object $object, string $propertyName, mixed $value): void {
