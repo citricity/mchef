@@ -64,10 +64,7 @@ class CI extends AbstractCommand {
             $imageName = $this->buildImage($recipe, $publishTag);
             
             // Publish if environment variables are set
-            if (!empty($publishTag)) {
-                $this->publishImage($imageName, $publishTag);
-            }
-            
+            $this->publishImage($imageName, $publishTag);            
         } catch (Exception $e) {
             throw new CliRuntimeException('CI build failed: ' . $e->getMessage());
         }
