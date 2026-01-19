@@ -45,6 +45,27 @@ class GlobalConfig extends AbstractModel {
          * Selected PostgreSQL client for opening DBs
          * @var string|null
          */
-        public ?string $dbClientPgsql = null
+        public ?string $dbClientPgsql = null,
+
+
+        /**
+         * Registry URL for publishing images
+         */
+        public ?string $registryUrl = null,
+
+        /**
+         * Registry username for publishing images
+         */
+        public ?string $registryUsername = null,
+
+        /**
+         * Registry token for publishing images
+         */
+        public ?string $registryToken = null,
+
+        /**
+         * Registry password for publishing images
+         */
+        public ?string $registryPassword = null
     ) {}
 }

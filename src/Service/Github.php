@@ -65,13 +65,15 @@ class Github extends AbstractService {
 
         $content = @file_get_contents($fullUrl, false, $context);
 
+        $responseHeaders = http_get_last_response_headers();
+
         // No headers = hard failure: DNS, SSL, network down, etc.
-        if (!isset($http_response_header) || empty($http_response_header)) {
+        if (empty($responseHeaders)) {
             throw new CliRuntimeException("No response from GitHub when requesting: {$fullUrl}");
         }
 
         // Parse status line, e.g. "HTTP/1.1 200 OK"
-        $statusLine = $http_response_header[0];
+        $statusLine = $responseHeaders[0];
         preg_match('{HTTP/\S+\s(\d{3})}', $statusLine, $match);
         $status = isset($match[1]) ? (int)$match[1] : 0;
 

@@ -10,6 +10,7 @@ use App\Service\Main;
 use App\Service\Environment;
 use App\Service\RecipeService;
 use App\Service\Docker;
+use App\StaticVars;
 
 class MoodleConfig extends AbstractService {
 
@@ -92,18 +93,22 @@ class MoodleConfig extends AbstractService {
         }
         file_put_contents($assetsPath.'/config.php', $moodleConfigContents);
 
-        if ($recipe->includeBehat || $recipe->developer) {
-            try {
-                // Create moodle-browser-config config.
-                $browserConfigContents = $this->mainService->twig->render('@moodle-browser/config.php.twig', (array) $recipe);
-            } catch (\Exception $e) {
-                throw new \Exception('Failed to parse moodle-browser config.php template: '.$e->getMessage());
+        if (!StaticVars::$ciMode) {
+            if ($recipe->includeBehat || $recipe->developer) {
+                try {
+                    // Create moodle-browser-config config.
+                    $browserConfigContents = $this->mainService->twig->render('@moodle-browser/config.php.twig', (array) $recipe);
+                } catch (\Exception $e) {
+                    throw new \Exception('Failed to parse moodle-browser config.php template: '.$e->getMessage());
+                }
+            }
+            if ($browserConfigContents) {
+                $browserConfigAssetsPath = $assetsPath.'/moodle-browser-config';
+                if (!file_exists($browserConfigAssetsPath)) {
+                    mkdir($browserConfigAssetsPath, 0755, true);
+                }
+                file_put_contents($browserConfigAssetsPath.'/config.php', $browserConfigContents);
             }
         }
-        $browserConfigAssetsPath = $assetsPath.'/moodle-browser-config';
-        if (!file_exists($browserConfigAssetsPath)) {
-            mkdir($browserConfigAssetsPath, 0755, true);
-        }
-        file_put_contents($browserConfigAssetsPath.'/config.php', $browserConfigContents);
     }
 }

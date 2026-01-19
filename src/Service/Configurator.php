@@ -2,8 +2,10 @@
 
 namespace App\Service;
 use App\Helpers\OS;
+use App\Helpers\TestingHelpers;
 use App\Model\GlobalConfig;
 use App\Model\RegistryInstance;
+use App\StaticVars;
 
 class Configurator extends AbstractService {
 
@@ -17,6 +19,9 @@ class Configurator extends AbstractService {
     }
 
     public function configDir(): string {
+        if (TestingHelpers::isPHPUnit()) {
+            return OS::realPath(sys_get_temp_dir()).'/mchef_test_config';
+        }
         // Note can't realPath both because mchef dir might not exist.
         return OS::realPath('~').OS::path('/.config/mchef');
     }
@@ -69,6 +74,9 @@ class Configurator extends AbstractService {
      */
     public function getInstanceRegistry(): array {
         $path = $this->getRegistryFilePath();
+        if (!file_exists($this->configDir())) {
+            $this->establishConfigDir();
+        }
         if (!file_exists($path)) {
             touch($path);
         }

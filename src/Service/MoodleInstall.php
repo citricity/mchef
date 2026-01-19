@@ -58,7 +58,7 @@ class MoodleInstall extends AbstractService {
                 $dbnotready = false;
             } else {
                 $this->cli->notice('Waiting for DB ' . $dbContainer . ' to be ready');
-                $this->cli->notice('Command: ' . $dbCheckCmd);
+                $this->cli->debug('Command: ' . $dbCheckCmd);
                 sleep(1);
             }
         }

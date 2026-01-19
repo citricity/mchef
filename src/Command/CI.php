@@ -4,9 +4,9 @@ namespace App\Command;
 
 use App\Exceptions\CliRuntimeException;
 use App\Model\Recipe;
-use App\Service\Main;
 use App\Service\Docker;
 use App\Service\Environment;
+use App\StaticVars;
 use App\Traits\SingletonTrait;
 use splitbrain\phpcli\Options;
 use Exception;
@@ -32,6 +32,7 @@ class CI extends AbstractCommand {
     }
 
     public function execute(Options $options): void {
+        $this->cli = StaticVars::$cli;
         $args = $options->getArgs();
         
         // Validate recipe argument
@@ -50,8 +51,8 @@ class CI extends AbstractCommand {
         $publishTag = $options->getOpt('publish');
         if (empty($publishTag)) {
             throw new CliRuntimeException('Publish tag is required', 0, null, [
-                'Usage: mchef ci <recipe-file> --publish=<tag>',
-                'Example: mchef ci recipe.json --publish=v1.5.0'
+                'Usage: mchef ci --publish=<tag> <recipe-file>',
+                'Example: mchef ci --publish=v1.5.0 recipe.json'
             ]);
         }
 
@@ -63,7 +64,9 @@ class CI extends AbstractCommand {
             $imageName = $this->buildImage($recipe, $publishTag);
             
             // Publish if environment variables are set
-            $this->publishImage($imageName, $publishTag);
+            if (!empty($publishTag)) {
+                $this->publishImage($imageName, $publishTag);
+            }
             
         } catch (Exception $e) {
             throw new CliRuntimeException('CI build failed: ' . $e->getMessage());
@@ -116,7 +119,7 @@ class CI extends AbstractCommand {
         
         // Build image using Main service build process
         // Note: We'll need to extend the Main service to support custom image names
-        $this->mainService->buildDockerImage($recipe, $fullImageName);
+        $this->mainService->buildDockerCiImage($recipe, $fullImageName);
         
         $this->cli->success("✓ Image built: {$fullImageName}");
         
@@ -131,10 +134,10 @@ class CI extends AbstractCommand {
         
         if (empty($registryConfig)) {
             $this->cli->warning('Registry environment variables not configured - skipping publish');
-            $this->cli->info('To enable publishing, set the following environment variables:');
-            $this->cli->info('  MCHEF_REGISTRY_URL');
-            $this->cli->info('  MCHEF_REGISTRY_USERNAME');
-            $this->cli->info('  MCHEF_REGISTRY_PASSWORD (or MCHEF_REGISTRY_TOKEN for token-based auth)');
+            $this->cli->info('To enable publishing, set the following global config / environment variables:');
+            $this->cli->info('  registryUrl / MCHEF_REGISTRY_URL');
+            $this->cli->info('  registryUsername / MCHEF_REGISTRY_USERNAME');
+            $this->cli->info('  registryPassword / MCHEF_REGISTRY_PASSWORD (or registryToken / MCHEF_REGISTRY_TOKEN for token-based auth)');
             return;
         }
         
@@ -194,6 +197,7 @@ class CI extends AbstractCommand {
      * Generate registry-specific image name
      */
     private function getRegistryImageName(string $localImageName, array $registryConfig): string {
+        $registryUsername = $registryConfig['username'] ?? '';
         $registryUrl = rtrim($registryConfig['url'], '/');
         
         // Extract image name and tag from local name
@@ -201,6 +205,6 @@ class CI extends AbstractCommand {
         $imageName = $parts[0];
         $tag = $parts[1] ?? 'latest';
         
-        return "{$registryUrl}/{$imageName}:{$tag}";
+        return "{$registryUrl}/{$registryUsername}/{$imageName}:{$tag}";
     }
 }

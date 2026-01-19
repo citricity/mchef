@@ -85,13 +85,21 @@ final class Config extends AbstractCommand {
             $this->setPassword($password);
         } else if (!empty($options->getOpt('dbclient'))) {
             $client = $this->cli->promptForOption('Select your preferred database client:', self::DB_CLIENT_OPTIONS);
-            $this->setDbClient($client);
+            $this->setDbClient(trim($client));
         } else if (!empty($options->getOpt('dbclient-mysql'))) {
             $client = $this->cli->promptForOption('Select your preferred MySQL client:', self::DB_CLIENT_MYSQL_OPTIONS);
-            $this->setDbClientMysql($client);
+            $this->setDbClientMysql(trim($client));
         } else if (!empty($options->getOpt('dbclient-pgsql'))) {
             $client = $this->cli->promptForOption('Select your preferred PostgreSQL client:', self::DB_CLIENT_PGSQL_OPTIONS);
-            $this->setDbClientPgsql($client);
+            $this->setDbClientPgsql(trim($client));
+        } else if (!empty($options->getOpt('registryUrl'))) {
+            $this->setRegistryUrl(trim($options->getOpt('registryUrl')));
+        } else if (!empty($options->getOpt('registryUsername'))) {
+            $this->setRegistryUsername(trim($options->getOpt('registryUsername')));
+        } else if (!empty($options->getOpt('registryPassword'))) {
+            $this->setRegistryPassword(trim($options->getOpt('registryPassword')));
+        } else if (!empty($options->getOpt('registryToken'))) {
+            $this->setRegistryToken(trim($options->getOpt('registryToken')));
         } else {
             $this->cli->error('Invalid config option');
         }
@@ -118,7 +126,27 @@ final class Config extends AbstractCommand {
         $this->cli->notice("Default PostgreSQL client has been set.");
     }
 
-   protected function register(Options $options): void {
+    private function setRegistryUrl(string $url) {
+        $this->configuratorService->setMainConfigField('registryUrl', $url);
+        $this->cli->notice("Docker image registry URL has been set.");
+    }
+
+    private function setRegistryUsername(string $username) {
+        $this->configuratorService->setMainConfigField('registryUsername', $username);
+        $this->cli->notice("Docker image registry username has been set.");
+    }
+
+    private function setRegistryPassword(string $password) {
+        $this->configuratorService->setMainConfigField('registryPassword', $password);
+        $this->cli->notice("Docker image registry password has been set.");
+    }
+
+    private function setRegistryToken(string $token) {
+        $this->configuratorService->setMainConfigField('registryToken', $token);
+        $this->cli->notice("Docker image registry token has been set.");
+    }
+
+    protected function register(Options $options): void {
         $options->registerCommand(self::COMMAND_NAME, 'Configure mchef globally');
         $options->registerOption('lang', 'Set a default language code', 'l', true, self::COMMAND_NAME);
         $options->registerOption('password', 'Set a default admin password', 'a', false, self::COMMAND_NAME);
@@ -126,5 +154,9 @@ final class Config extends AbstractCommand {
         $options->registerOption('dbclient', 'Set the default database client', null, false, self::COMMAND_NAME);
         $options->registerOption('dbclient-mysql', 'Set the default MySQL client', null, false, self::COMMAND_NAME);
         $options->registerOption('dbclient-pgsql', 'Set the default PostgreSQL client', null, false, self::COMMAND_NAME);
+        $options->registerOption('registryUrl', 'Set docker image registry url', null, 'URL', self::COMMAND_NAME);
+        $options->registerOption('registryUsername', 'Set docker image registry username', null, 'USERNAME', self::COMMAND_NAME);
+        $options->registerOption('registryPassword', 'Set docker image registry password', null, 'PASSWORD', self::COMMAND_NAME);
+        $options->registerOption('registryToken', 'Set docker image registry token', null, 'TOKEN', self::COMMAND_NAME);
     }
 }

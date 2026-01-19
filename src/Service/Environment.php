@@ -4,6 +4,8 @@ namespace App\Service;
 
 class Environment extends AbstractService {
 
+    protected Configurator $configuratorService;
+
     final public static function instance(): Environment {
         return self::setup_singleton();
     }
@@ -49,10 +51,11 @@ class Environment extends AbstractService {
      * Get registry configuration from environment variables
      */
     public function getRegistryConfig(): ?array {
-        $url = $this->get('MCHEF_REGISTRY_URL');
-        $username = $this->get('MCHEF_REGISTRY_USERNAME');
-        $password = $this->get('MCHEF_REGISTRY_PASSWORD');
-        $token = $this->get('MCHEF_REGISTRY_TOKEN');
+        $config = $this->configuratorService->getMainConfig();
+        $url = $config->registryUrl ?? $this->get('MCHEF_REGISTRY_URL');
+        $username = $config->registryUsername ?? $this->get('MCHEF_REGISTRY_USERNAME');
+        $password = $config->registryPassword ?? $this->get('MCHEF_REGISTRY_PASSWORD');
+        $token = $config->registryToken ??$this->get('MCHEF_REGISTRY_TOKEN');
         
         if (empty($url) || empty($username) || (empty($password) && empty($token))) {
             return null;

@@ -9,11 +9,13 @@ The CI command has been successfully implemented as specified in the requirement
 ## Implementation Details
 
 ### 1. Recipe Model Enhancement
+
 - **File**: `src/Model/Recipe.php`
 - **Added**: `publishTagPrefix` property for customizing Docker image tag prefixes
 - **Purpose**: Allows recipes to specify custom prefixes for published images (e.g., "my-app" → "my-app:v1.5.0")
 
 ### 2. CI Command
+
 - **File**: `src/Command/CI.php`
 - **Command**: `mchef ci <recipe-file> --publish=<tag>`
 - **Features**:
@@ -23,15 +25,18 @@ The CI command has been successfully implemented as specified in the requirement
   - Graceful error handling with `CliRuntimeException`
 
 ### 3. Production Build Overrides
+
 The CI command automatically overrides the following recipe fields for production builds:
+
 - `cloneRepoPlugins: false`
-- `mountPlugins: false` 
+- `mountPlugins: false`
 - `developer: false`
 - `includePhpUnit: false`
 - `includeBehat: false`
 - `includeXdebug: false`
 
 ### 4. Docker Service Enhancements
+
 - **File**: `src/Service/Docker.php`
 - **Added Methods**:
   - `loginToRegistry()` - Authenticate with Docker registries
@@ -40,19 +45,23 @@ The CI command automatically overrides the following recipe fields for productio
   - `buildImageWithCompose()` - Build images using docker-compose
 
 ### 5. Main Service Enhancements
+
 - **File**: `src/Service/Main.php`
 - **Added Methods**:
-  - `buildDockerImage()` - Build production images with custom names
+  - `buildDockerCiImage()` - Build production images with custom names
   - `prepareDockerDataForCI()` - Prepare Docker configuration for CI builds
 
 ### 6. Environment Variable Support
+
 The CI command supports the following environment variables for registry publishing:
+
 - `MCHEF_REGISTRY_URL` - Registry URL (e.g., "https://ghcr.io")
 - `MCHEF_REGISTRY_USERNAME` - Registry username
 - `MCHEF_REGISTRY_PASSWORD` - Password-based authentication
 - `MCHEF_REGISTRY_TOKEN` - Token-based authentication (e.g., GitHub)
 
 ### 7. Error Handling & User Experience
+
 - **Validation**: Comprehensive input validation with helpful error messages
 - **Graceful Degradation**: Builds locally if registry credentials are missing
 - **Clear Messaging**: Informative output about build steps and configuration
@@ -60,12 +69,14 @@ The CI command supports the following environment variables for registry publish
 ## Usage Examples
 
 ### Basic Build (No Publishing)
+
 ```bash
 # Missing registry credentials - builds locally only
 mchef ci recipe.json --publish=v1.5.0
 ```
 
 ### Build and Publish to Docker Hub
+
 ```bash
 export MCHEF_REGISTRY_URL="https://docker.io"
 export MCHEF_REGISTRY_USERNAME="myusername"
@@ -75,6 +86,7 @@ mchef ci recipe.json --publish=v1.5.0
 ```
 
 ### Build and Publish to GitHub Container Registry
+
 ```bash
 export MCHEF_REGISTRY_URL="https://ghcr.io"
 export MCHEF_REGISTRY_USERNAME="github-username"
@@ -104,11 +116,13 @@ mchef ci recipe.json --publish=v1.5.0
 ## Testing
 
 ### Test Coverage
+
 - **File**: `src/Tests/CICommandTest.php`
 - **Tests**: 11 tests covering core functionality
 - **Status**: 8 passing, 3 skipped (environment variable mocking would require additional setup)
 
 ### Test Categories
+
 1. **Error Handling**: Missing arguments, invalid files, missing tags
 2. **Core Logic**: Image naming, recipe overrides, sanitization
 3. **Build Process**: Recipe loading, Docker image building
@@ -117,6 +131,7 @@ mchef ci recipe.json --publish=v1.5.0
 ## Future Enhancements
 
 ### Potential Improvements
+
 1. **Environment Variable Injection**: Refactor to use dependency injection for easier testing
 2. **Advanced Registry Support**: Support for additional registry types
 3. **Build Caching**: Docker layer caching for faster CI builds
@@ -126,6 +141,7 @@ mchef ci recipe.json --publish=v1.5.0
 ### CI/CD Integration Examples
 
 #### GitHub Actions
+
 ```yaml
 - name: Build and Publish Moodle Image
   env:
@@ -136,6 +152,7 @@ mchef ci recipe.json --publish=v1.5.0
 ```
 
 #### GitLab CI
+
 ```yaml
 build:
   variables:

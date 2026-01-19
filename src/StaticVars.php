@@ -12,4 +12,6 @@ class StaticVars {
     static ?RegistryInstance $instance = null;
     static ?Recipe $recipe = null;
     static ?bool $noCache = false;
+    static ?bool $ciMode = false; // Are we building in CI mode?
+    static ?string $ciDockerPath = null;
 }

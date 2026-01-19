@@ -3,6 +3,7 @@
 namespace App\Service;
 
 use App\Model\DockerContainer;
+use App\Model\DockerData;
 use App\Model\DockerNetwork;
 use App\Traits\ExecTrait;
 use splitbrain\phpcli\Exception;
@@ -339,23 +340,25 @@ class Docker extends AbstractService {
      * Build Docker image with custom name using docker compose.
      * 
      * @param string $composeFile Path to docker-compose.yml file
-     * @param string $imageName Custom image name to build as
+     * @param DockerData $dockerData Docker data used for the build
+     * @param string $imageName Custom image name to tag as
      * @param string $projectDir Project directory for docker compose
      * @throws Exception If build fails
      */
-    public function buildImageWithCompose(string $composeFile, string $imageName, string $projectDir): void {
+    public function buildImageWithCompose(string $composeFile, DockerData $dockerData, string $imageName, string $projectDir, ?bool $usesSsh = false): void {
         $composeFileEscaped = escapeshellarg($composeFile);
         $projectDirEscaped = escapeshellarg($projectDir);
         
         // Build using docker compose but don't start containers
-        $cmd = "docker compose --project-directory {$projectDirEscaped} -f {$composeFileEscaped} build";
+        $dockerBuildKit = $usesSsh ? 'DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 ' : '';
+        $cmd = "{$dockerBuildKit}docker compose --project-directory {$projectDirEscaped} -f {$composeFileEscaped} build";
         $this->exec($cmd, "Failed to build image with docker compose");
         
         // Get the built image name from compose and tag it with our custom name
         // This is a bit tricky - we need to inspect what compose built and rename it
         // For now, we'll assume the main service in compose is called 'moodle'
         $serviceName = $this->extractServiceNameFromCompose($composeFile);
-        $builtImageName = $this->getComposeImageName($projectDir, $serviceName);
+        $builtImageName = $dockerData->containerName ?? $this->getComposeImageName($projectDir, $serviceName);
         
         if ($builtImageName !== $imageName) {
             $this->tagImage($builtImageName, $imageName);
