@@ -94,6 +94,7 @@ class MoodleConfig extends AbstractService {
         file_put_contents($assetsPath.'/config.php', $moodleConfigContents);
 
         if (!StaticVars::$ciMode) {
+            $browserConfigContents = null;
             if ($recipe->includeBehat || $recipe->developer) {
                 try {
                     // Create moodle-browser-config config.

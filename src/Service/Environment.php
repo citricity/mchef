@@ -55,7 +55,7 @@ class Environment extends AbstractService {
         $url = $config->registryUrl ?? $this->get('MCHEF_REGISTRY_URL');
         $username = $config->registryUsername ?? $this->get('MCHEF_REGISTRY_USERNAME');
         $password = $config->registryPassword ?? $this->get('MCHEF_REGISTRY_PASSWORD');
-        $token = $config->registryToken ??$this->get('MCHEF_REGISTRY_TOKEN');
+        $token = $config->registryToken ?? $this->get('MCHEF_REGISTRY_TOKEN');
         
         if (empty($url) || empty($username) || (empty($password) && empty($token))) {
             return null;

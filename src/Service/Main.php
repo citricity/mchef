@@ -691,7 +691,7 @@ class Main extends AbstractService {
         } finally {
             // Clean up build directory
             if (is_dir($buildDir)) {
-                //$this->fileService->deleteDir($buildDir);
+                $this->fileService->deleteDir($buildDir);
             }
         }
     }

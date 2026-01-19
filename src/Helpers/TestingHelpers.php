@@ -9,7 +9,7 @@ use App\StaticVars;
  * Testing utility functions for MChef
  */
 class TestingHelpers {
-    static $phpunitTest = false;
+    private static bool $phpunitTest = false;
     
     /**
      * Check if code is running in PHPUnit test environment
