@@ -8,7 +8,7 @@ use App\Helpers\OS;
 use App\Helpers\SplitbrainWrapper;
 
 class MChefCLI extends CLI {
-    static $version = '1.0.0';
+    static $version = '1.1.0';
 
     /**
      * @var \App\Service\Main;

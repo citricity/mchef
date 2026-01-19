@@ -5,3 +5,6 @@ bin/mchef.php
 .mchef
 .phpunit.result.cache
 composer.phar
+
+# Build artifacts
+*.phar

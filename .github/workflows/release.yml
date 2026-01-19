@@ -1,0 +1,39 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build-phar:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          extensions: phar, zip
+          tools: composer
+
+      - name: Install dependencies
+        run: |
+          composer install --no-dev --optimize-autoloader --no-interaction
+
+      - name: Build PHAR
+        run: |
+          php build-phar.php
+
+      - name: Test PHAR
+        run: |
+          php mchef.phar --help
+
+      - name: Upload PHAR to release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: mchef.phar
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
