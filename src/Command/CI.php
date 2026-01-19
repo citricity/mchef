@@ -202,6 +202,13 @@ class CI extends AbstractCommand {
         $imageName = $parts[0];
         $tag = $parts[1] ?? 'latest';
         
-        return "{$registryUrl}/{$registryUsername}/{$imageName}:{$tag}";
+        $parts = [$registryUrl];
+        if (!empty($registryUsername)) {
+            $parts[] = $registryUsername;
+        }
+        $parts[] = $imageName;
+        $registryImageName = implode('/', $parts);
+
+        return "{$registryImageName}:{$tag}";
     }
 }
