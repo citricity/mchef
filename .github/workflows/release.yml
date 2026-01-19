@@ -18,6 +18,7 @@ jobs:
           php-version: "8.2"
           extensions: phar, zip
           tools: composer
+          ini-values: phar.readonly=Off
 
       - name: Install dependencies
         run: |
