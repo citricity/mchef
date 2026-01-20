@@ -29,6 +29,7 @@ class Main extends AbstractService {
     private Environment $environmentService;
     private MoodleConfig $moodleConfigService;
     private MoodleInstall $moodleInstallService;
+    private Hosts $hostsService;
 
     // Models
     private Recipe $recipe;
@@ -260,81 +261,12 @@ class Main extends AbstractService {
         return $this->dockerService->checkPortAvailable($this->getHostPort($recipe));
     }
 
-    public function hostPath(): string {
-        if (!OS::isWindows()) {
-            return '/etc/hosts';
-        } else {
-            return 'C:\\Windows\\System32\\drivers\\etc\\hosts';
-        }
+    public function hostPath() : string {
+        return $this->hostsService->getHostsFilePath();
     }
 
     private function updateHostHosts(Recipe $recipe): void {
-        $destHostsFile = $this->hostPath();
-
-        if ($recipe->updateHostHosts) {
-            try {
-                $hosts = file($this->hostPath());
-            } catch (\Exception $e) {
-                $this->cli->error('Failed to update host hosts file');
-            }
-        }
-        $toAdd = [];
-        if (!empty($recipe->host)) {
-            $toAdd[] = $recipe->host;
-        }
-        if (!empty($recipe->behatHost)) {
-            $toAdd[] = $recipe->behatHost;
-        }
-        $toAdd = array_filter($toAdd, function ($new) use ($hosts) {
-            foreach ($hosts as $existing) {
-                if (preg_match('/^127\.0\.0\.1\s+' . preg_quote($new, '/') . '$/m', $existing)) {
-                    // Already exists - no need to add.
-                    return false;
-                }
-            }
-            return true;
-        });
-
-        if (empty($toAdd)) {
-            $this->cli->info("No hosts to add to host $destHostsFile file");
-            return;
-        }
-
-        $toAddLines = [];
-        foreach ($toAdd as $newHost) {
-            $newHost = "\n" . '127.0.0.1       ' . $newHost;
-            $toAddLines[] = $newHost;
-        }
-
-        array_unshift($toAddLines, "\n# Hosts added by mchef");
-        array_push($toAddLines, "\n# End hosts added by mchef");
-
-        $hosts = array_merge($hosts, $toAddLines);
-        $hostsContent = implode("", $hosts);
-        $tmpHostsFile = tempnam(sys_get_temp_dir(), "etc_hosts");
-        file_put_contents($tmpHostsFile, $hostsContent);
-
-        if (!OS::isWindows()) {
-            $this->cli->notice("Updating $destHostsFile - may need root password.");
-            $cmd = "sudo cp -f $tmpHostsFile /etc/hosts";
-        } else {
-            $this->cli->notice("Updating $destHostsFile - may need to be running as administrator.");
-            $cmd = "copy /Y \"$tmpHostsFile\" \"$destHostsFile\"";
-        }
-        exec($cmd, $output, $returnVar);
-
-        if ($returnVar != 0) {
-            throw new Exception("Error updating $destHostsFile file");
-        }
-
-        $hostsContent = file_get_contents($destHostsFile);
-        foreach ($toAdd as $toCheck) {
-            if (stripos($hostsContent, $toCheck) === false) {
-                throw new Exception("Failed to update $destHostsFile");
-            }
-        }
-
-        $this->cli->success("Successfully updated $destHostsFile");
+        $this->hostsService->updateHosts($recipe);
     }
 
     private function parseRecipe(string $recipeFilePath): Recipe {
