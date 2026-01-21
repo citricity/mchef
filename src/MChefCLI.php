@@ -8,7 +8,7 @@ use App\Helpers\OS;
 use App\Helpers\SplitbrainWrapper;
 
 class MChefCLI extends CLI {
-    static $version = '1.1.0';
+    static $version = '1.1.5';
 
     /**
      * @var \App\Service\Main;
@@ -30,6 +30,7 @@ class MChefCLI extends CLI {
 
     public function __construct($autocatch = true) {
         require_once(__DIR__ . '/lib.php');
+        require_once(__DIR__ . '/Polyfills/index.php');
         
         // Suppress splitbrain deprecation warnings during construction
         SplitbrainWrapper::suppressDeprecationWarnings(function() use ($autocatch) {
