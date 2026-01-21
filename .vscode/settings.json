@@ -1,0 +1,4 @@
+{
+  "phpCodeSniffer.standard": "${workspaceFolder}/phpcs.xml",
+  "phpCodeSniffer.ignorePatterns": ["**/vendor/**", "**/node_modules/**"]
+}
