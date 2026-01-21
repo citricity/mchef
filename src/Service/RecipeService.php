@@ -1,13 +1,27 @@
 <?php
+// This file is part of Moodle - https://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 namespace App\Service;
 
 use splitbrain\phpcli\Exception;
 use stdClass;
 use App\Model\Recipe;
+use App\StaticVars;
 
 class RecipeService extends AbstractService {
-
     // Dependencies
     protected ModelJSONDeserializer $deserializerService;
     protected Configurator $configuratorService;
@@ -19,7 +33,7 @@ class RecipeService extends AbstractService {
 
     public function parse(string $filePath): Recipe {
         if (!file_exists($filePath)) {
-            throw new Exception('Recipe file does not exist - '.$filePath);
+            throw new Exception('Recipe file does not exist - ' . $filePath);
         }
         $contents = file_get_contents($filePath);
 
@@ -27,7 +41,7 @@ class RecipeService extends AbstractService {
             /** @var Recipe $recipe */
             $recipe = $this->deserializerService->deserialize($contents, Recipe::class);
         } catch (\Exception $e) {
-            throw new Exception('Failed to decode recipe JSON. Recipe: '.$filePath, 0, $e);
+            throw new Exception('Failed to decode recipe JSON. Recipe: ' . $filePath, 0, $e);
         }
 
         // Handle restoreStructure URL if it's a string
@@ -48,7 +62,7 @@ class RecipeService extends AbstractService {
         $recipe->setRecipePath($filePath);
 
         return $recipe;
-    }  
+    }
 
     /**
      * Handle restoreStructure URL - if restoreStructure is a string URL, download and parse it
@@ -57,12 +71,12 @@ class RecipeService extends AbstractService {
         // Check if restoreStructure is a string (URL)
         if (is_string($recipe->restoreStructure)) {
             $restoreStructureUrl = $recipe->restoreStructure;
-            
+
             if ($this->isUrl($restoreStructureUrl)) {
                 $this->cli->notice('Downloading restore structure from URL: ' . $restoreStructureUrl);
                 $downloadedContent = $this->downloadFile($restoreStructureUrl);
                 $downloadedData = json_decode($downloadedContent, true);
-                
+
                 if ($downloadedData === null) {
                     throw new Exception('Failed to parse restore structure JSON from URL: ' . $restoreStructureUrl);
                 }
@@ -72,7 +86,7 @@ class RecipeService extends AbstractService {
                     $downloadedData,
                     \App\Model\RestoreStructure::class
                 );
-                
+
                 $recipe->restoreStructure = $restoreStructure;
             }
         }
@@ -119,7 +133,7 @@ class RecipeService extends AbstractService {
 
     private function getPortString(Recipe $recipe): ?string {
         $recipe->port = $recipe->port ?? 80;
-        return $recipe->port === 80 ? '' : ':'.$recipe->port;
+        return $recipe->port === 80 ? '' : ':' . $recipe->port;
     }
 
     public function getBehatHost(Recipe $recipe): ?string {
@@ -141,17 +155,32 @@ class RecipeService extends AbstractService {
         // Setup port and wwwRoot.
         $recipe->port = $recipe->port ?? 80;
         $portStr = $this->getPortString($recipe);
-        $recipe->wwwRoot = $recipe->hostProtocol.'://'.$recipe->host.($portStr);
+        $recipe->wwwRoot = $recipe->hostProtocol . '://' . $recipe->host . ($portStr);
 
-        // Setup behat defaults.
+        $devFields = ['includeXdebug', 'includeBehat', 'includePhpUnit'];
+
+        // Setup behat defaults.          
+        if (empty(StaticVars::$ciMode) || !empty($recipe->allowDevFeaturesInProduction)) {
+            foreach ($devFields as $field) {
+                if ($recipe->$field === null) {
+                    $recipe->$field = !empty($recipe->developer);
+                }
+            }
+        }  else {
+            $recipe->developer = false;
+            foreach ($devFields as $field) {
+                $recipe->$field = false;
+            }
+        }
+
         if ($recipe->includeBehat) {
             $recipe->behatHost = $this->getBehatHost($recipe);
-            $recipe->behatWwwRoot = $recipe->hostProtocol.'://'.$recipe->behatHost.($portStr);
+            $recipe->behatWwwRoot = $recipe->hostProtocol . '://' . $recipe->behatHost . ($portStr);
         }
 
         // Setup database defaults.
         if (empty($recipe->dbName)) {
-            $recipe->dbName = ($recipe->containerPrefix ?? 'mc').'-moodle';
+            $recipe->dbName = ($recipe->containerPrefix ?? 'mc') . '-moodle';
         }
     }
 }

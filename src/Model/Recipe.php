@@ -150,24 +150,27 @@ class Recipe extends AbstractModel {
         public bool $developer = false,
 
         /**
-         * @var bool - include php unit configuration
+         * Note - if you set developer to true, this will be overridden and set to true.
+         * @var bool|null - include php unit configuration
          */
-        public bool $includePhpUnit = false,
+        public ?bool $includePhpUnit = null,
 
         /**
-         * @var bool - include behat configuration
+         * Note - if you set developer to true, this will be overridden and set to true.
+         * @var bool|null - include behat configuration
          */
-        public bool $includeBehat = false,
+        public ?bool $includeBehat = null,
 
         /**
-         * @var bool - include xdebug
+         * Note - if you set developer to true, this will be overridden and set to true.
+         * @var bool|null - include xdebug
          */
-        public bool $includeXdebug = false,
+        public ?bool $includeXdebug = null,
 
         /**
          * @var string - xdebug mode
          */
-        public $xdebugMode = null,
+        public ?string $xdebugMode = null,
 
         /**
          * @var string - behat host
@@ -209,6 +212,8 @@ class Recipe extends AbstractModel {
          * Can be a RestoreStructure object, a URL string to download the structure, or null
          */
         public RestoreStructure|string|null $restoreStructure = null,
+
+        public bool $allowDevFeaturesInProduction = false,
 
         // These properties are used to build the custom config file.
 

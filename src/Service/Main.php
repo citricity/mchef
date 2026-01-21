@@ -14,7 +14,6 @@ use App\Service\Database;
 use App\Service\MoodleConfig;
 
 class Main extends AbstractService {
-
     use ExecTrait;
 
     // Dependencies
@@ -41,10 +40,10 @@ class Main extends AbstractService {
     private ?string $chefPath = null;
 
     protected function __construct() {
-        $loader = new \Twig\Loader\FilesystemLoader(__DIR__.'/../../templates');
-        $loader->addPath(__DIR__.'/../../templates/moodle', 'moodle');
-        $loader->addPath(__DIR__.'/../../templates/moodle/browser', 'moodle-browser');
-        $loader->addPath(__DIR__.'/../../templates/docker', 'docker');
+        $loader = new \Twig\Loader\FilesystemLoader(__DIR__ . '/../../templates');
+        $loader->addPath(__DIR__ . '/../../templates/moodle', 'moodle');
+        $loader->addPath(__DIR__ . '/../../templates/moodle/browser', 'moodle-browser');
+        $loader->addPath(__DIR__ . '/../../templates/docker', 'docker');
         $this->twig = new \Twig\Environment($loader);
         parent::__construct();
     }
@@ -74,7 +73,7 @@ class Main extends AbstractService {
         $instanceName = $this->configuratorService->getMainConfig()->instance;
         if ($instanceName) {
             $instance = $this->configuratorService->getRegisteredInstance($instanceName);
-            $chefPath = OS::path(dirname($instance->recipePath).'/.mchef');
+            $chefPath = OS::path(dirname($instance->recipePath) . '/.mchef');
         } else {
             $chefPath = $this->fileService->findFileInOrAboveDir('.mchef');
         }
@@ -111,11 +110,11 @@ class Main extends AbstractService {
         if (isset(StaticVars::$ciDockerPath)) {
             return StaticVars::$ciDockerPath;
         }
-        return $this->getChefPath().'/docker';
+        return $this->getChefPath() . '/docker';
     }
 
     public function getAssetsPath() {
-        return $this->getDockerPath().'/assets';
+        return $this->getDockerPath() . '/assets';
     }
 
     public function getHostPort(?Recipe $recipe = null): int {
@@ -132,7 +131,7 @@ class Main extends AbstractService {
     }
 
     private function startDocker($ymlPath) {
-        $ymlPath=OS::path($ymlPath);
+        $ymlPath = OS::path($ymlPath);
         $this->cli->notice('Starting docker containers');
 
         $this->establishDockerData();
@@ -153,7 +152,7 @@ class Main extends AbstractService {
 
             $volumes = array_filter(
                 $dockerData->volumes,
-                function($vol) use($pluginPaths) {
+                function ($vol) use ($pluginPaths) {
                     return !in_array($vol->path, $pluginPaths);
                 }
             );
@@ -164,7 +163,7 @@ class Main extends AbstractService {
         // Re-render the compose file with the correct hostPort
         $dockerComposeFileContents = $this->twig->render('@docker/main.compose.yml.twig', (array) $dockerData);
         file_put_contents($ymlPath, $dockerComposeFileContents);
-        $this->cli->notice('Created docker compose file at '.$ymlPath);
+        $this->cli->notice('Created docker compose file at ' . $ymlPath);
 
         // Compose the command
         $dockerBuildKit = $dockerData->reposUseSsh ? 'DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 ' : '';
@@ -201,14 +200,14 @@ class Main extends AbstractService {
 
         $toStop = [
             $moodleContainer,
-            $dbContainer
+            $dbContainer,
         ];
 
         $containers = $this->dockerService->getDockerContainers(false);
         $stoppedContainers = 0;
         foreach ($containers as $container) {
             $name = $container->names;
-            $this->cli->notice('Stopping container: '.$name);
+            $this->cli->notice('Stopping container: ' . $name);
             if (in_array($name, $toStop)) {
                 $this->dockerService->stopDockerContainer($name);
                 $stoppedContainers++;
@@ -227,7 +226,7 @@ class Main extends AbstractService {
         $networkName = 'mc-network';
 
         if ($this->dockerService->networkExists($networkName)) {
-            $this->cli->info('Skipping creating network as it exists: '.$networkName);
+            $this->cli->info('Skipping creating network as it exists: ' . $networkName);
         } else {
             $this->cli->info('Configuring network ' . $networkName);
             $cmd = "docker network create $networkName";
@@ -261,7 +260,7 @@ class Main extends AbstractService {
         return $this->dockerService->checkPortAvailable($this->getHostPort($recipe));
     }
 
-    public function hostPath() : string {
+    public function hostPath(): string {
         if (!OS::isWindows()) {
             return '/etc/hosts';
         } else {
@@ -286,7 +285,7 @@ class Main extends AbstractService {
         if (!empty($recipe->behatHost)) {
             $toAdd[] = $recipe->behatHost;
         }
-        $toAdd = array_filter($toAdd, function($new) use($hosts) {
+        $toAdd = array_filter($toAdd, function ($new) use ($hosts) {
             foreach ($hosts as $existing) {
                 if (preg_match('/^127\.0\.0\.1\s+' . preg_quote($new, '/') . '$/m', $existing)) {
                     // Already exists - no need to add.
@@ -303,7 +302,7 @@ class Main extends AbstractService {
 
         $toAddLines = [];
         foreach ($toAdd as $newHost) {
-            $newHost = "\n".'127.0.0.1       '.$newHost;
+            $newHost = "\n" . '127.0.0.1       ' . $newHost;
             $toAddLines[] = $newHost;
         }
 
@@ -347,12 +346,12 @@ class Main extends AbstractService {
     private function populateAssets(Recipe &$recipe) {
         $assetsPath = $this->getAssetsPath();
         if (!file_exists($assetsPath)) {
-            $this->cli->info('Creating docker assets path '.$assetsPath);
+            $this->cli->info('Creating docker assets path ' . $assetsPath);
             mkdir($assetsPath, 0755, true);
         }
 
         $this->moodleConfigService->processConfigFile($recipe);
-        $scriptsAssetsPath = $assetsPath.'/scripts';
+        $scriptsAssetsPath = $assetsPath . '/scripts';
         if (!file_exists($scriptsAssetsPath)) {
             mkdir($scriptsAssetsPath, 0755, true);
         }
@@ -361,14 +360,14 @@ class Main extends AbstractService {
             try {
                 $xdebugContents = $this->twig->render('@docker/install-xdebug.sh.twig', ['mode' => $recipe->xdebugMode ?? 'debug']);
             } catch (\Exception $e) {
-                throw new Exception('Failed to parse install-xdebug.sh template: '.$e->getMessage());
-            }        
-            file_put_contents($scriptsAssetsPath.'/install-xdebug.sh', $xdebugContents);
+                throw new Exception('Failed to parse install-xdebug.sh template: ' . $e->getMessage());
+            }
+            file_put_contents($scriptsAssetsPath . '/install-xdebug.sh', $xdebugContents);
         }
     }
 
     public function getRegisteredUuid(string $chefPath): ?string {
-        $path = OS::path($chefPath.'/registry_uuid.txt');
+        $path = OS::path($chefPath . '/registry_uuid.txt');
         if (file_exists($path)) {
             return trim(file_get_contents($path));
         }
@@ -382,7 +381,9 @@ class Main extends AbstractService {
         $this->pluginInfo = $this->pluginsService->getPluginsInfoFromRecipe($this->recipe);
         $volumes = $this->pluginInfo ? $this->pluginInfo->volumes : [];
         if ($volumes) {
-            $this->cli->info('Volumes will be created for plugins: '.implode("\n", array_map(function($vol) {return $vol->path;}, $volumes)));
+            $this->cli->info('Volumes will be created for plugins: ' . implode("\n", array_map(function ($vol) {
+                return $vol->path;
+            }, $volumes)));
         }
 
         $moodlePath = $this->moodleService->getDockerMoodlePath($this->recipe);
@@ -390,7 +391,9 @@ class Main extends AbstractService {
         $dockerData = new DockerData($volumes, $moodlePath, $usePublic, null, ...(array) $this->recipe);
         $dockerData->volumes = $volumes;
         $dockerData->reposUseSsh = $this->pluginsReposUseSsh($this->recipe);
+
         $this->dockerData = $dockerData;
+
         return $this->dockerData;
     }
 
@@ -413,7 +416,7 @@ class Main extends AbstractService {
                             }
                             $repo = $pluginInfo->recipeSrc;
                             $branch = 'main'; // Default branch if not specified
-                        } elseif (is_object($pluginInfo->recipeSrc)) {
+                        } else if (is_object($pluginInfo->recipeSrc)) {
                             if ($pluginInfo->recipeSrc->repo !== $recipePlugin->repo) {
                                 continue;
                             }
@@ -426,7 +429,7 @@ class Main extends AbstractService {
                         $pluginsForDocker[] = [
                             'repo' => $repo,
                             'branch' => $branch,
-                            'path' => $path
+                            'path' => $path,
                         ];
                         break;
                     }
@@ -437,16 +440,15 @@ class Main extends AbstractService {
     }
     public function up(string $recipeFilePath): void {
         $recipeFilePath = OS::path($recipeFilePath);
-        $this->cli->notice('Cooking up recipe '.$recipeFilePath);
+        $this->cli->notice('Cooking up recipe ' . $recipeFilePath);
         // Check if we're running from within the actual moodle-chef development directory
         $currentDir = realpath(getcwd());
         $mchefDevDir = realpath(__DIR__ . '/../../');
         if ($currentDir && $mchefDevDir && (strpos($currentDir . '/', $mchefDevDir . '/') === 0 || $currentDir === $mchefDevDir)) {
-            throw new Exception('You should not run mchef from within the moodle-chef folder.'.
-                "\nYou should instead, create a link to mchef in your bin folder and then run it from a project folder.".
-                "\n\nphp mchef.php -i will do this for you. You'll need to open a fresh terminal once it has completed.".
-                "\nAt that point you should be able to call mchef.php without prefixing with the php command."
-            );
+            throw new Exception('You should not run mchef from within the moodle-chef folder.' .
+                "\nYou should instead, create a link to mchef in your bin folder and then run it from a project folder." .
+                "\n\nphp mchef.php -i will do this for you. You'll need to open a fresh terminal once it has completed." .
+                "\nAt that point you should be able to call mchef.php without prefixing with the php command.");
         }
         $recipe = $this->getRecipe($recipeFilePath);
 
@@ -459,16 +461,16 @@ class Main extends AbstractService {
 
         // Check if the recipe.json file exists
         if (!file_exists($recipeJsonFilePath)) {
-           // If the file doesn't exist, copy the contents of $recipeFilePath to the new recipe.json file
-           copy($recipeFilePath, $recipeJsonFilePath);
+            // If the file doesn't exist, copy the contents of $recipeFilePath to the new recipe.json file
+            copy($recipeFilePath, $recipeJsonFilePath);
         }
         $this->stopContainers($recipe->containerPrefix);
 
         if ($recipe->includeBehat) {
-            $behatDumpPath = getcwd().'/_behat_dump';
+            $behatDumpPath = getcwd() . '/_behat_dump';
             if (!file_exists($behatDumpPath)) {
                 mkdir($behatDumpPath, 0755);
-                file_put_contents($behatDumpPath.'/.htaccess', "Options +Indexes\nAllow from All");
+                file_put_contents($behatDumpPath . '/.htaccess', "Options +Indexes\nAllow from All");
             }
         }
 
@@ -495,11 +497,11 @@ class Main extends AbstractService {
         if (!file_exists($dockerPath)) {
             mkdir($dockerPath, 0755, true);
         }
-        copy($recipeFilePath, $chefPath.'/recipe.json');
+        copy($recipeFilePath, $chefPath . '/recipe.json');
         $regUuid = $this->getRegisteredUuid($chefPath);
         $this->cli->notice('Registering instance in main config');
 
-        $this->configuratorService->registerInstance(realPath($recipeFilePath), $regUuid, $recipe->containerPrefix);
+        $this->configuratorService->registerInstance(realpath($recipeFilePath), $regUuid, $recipe->containerPrefix);
         // Now get the updated proxy information after registration
         $globalConfig = $this->configuratorService->getMainConfig();
         $useProxy = $globalConfig->useProxy ?? false;
@@ -526,14 +528,14 @@ class Main extends AbstractService {
         try {
             $dockerFileContents = $this->twig->render('@docker/main.dockerfile.twig', (array) $dockerData);
         } catch (\Exception $e) {
-            throw new Exception('Failed to parse main.dockerfile template: '.$e->getMessage());
+            throw new Exception('Failed to parse main.dockerfile template: ' . $e->getMessage());
         }
 
-        $dockerData->dockerFile = $dockerPath.'/Dockerfile';
+        $dockerData->dockerFile = $dockerPath . '/Dockerfile';
         file_put_contents($dockerData->dockerFile, $dockerFileContents);
 
         $dockerComposeFileContents = $this->twig->render('@docker/main.compose.yml.twig', (array) $dockerData);
-        $ymlPath = $dockerPath.'/main.compose.yml';
+        $ymlPath = $dockerPath . '/main.compose.yml';
         file_put_contents($ymlPath, $dockerComposeFileContents);
 
         // If containers are already running then we need to stop them to re-implement recipe.
@@ -547,7 +549,7 @@ class Main extends AbstractService {
         $this->proxyService->updateProxyConfiguration();
 
         // Print out wwwroot
-        $this->cli->notice('Your mchef-Moodle is now available at: ' . $recipe->wwwRoot );
+        $this->cli->notice('Your mchef-Moodle is now available at: ' . $recipe->wwwRoot);
     }
 
     public function getRecipe(?string $recipeFilePath = null): Recipe {
@@ -555,9 +557,9 @@ class Main extends AbstractService {
             return $this->recipe;
         }
         $mchefPath = $this->getChefPath();
-        $recipeFilePath = $recipeFilePath ?? $mchefPath.'/recipe.json';
+        $recipeFilePath = $recipeFilePath ?? $mchefPath . '/recipe.json';
         if (!file_exists($recipeFilePath)) {
-            throw new \Exception('Have you run mchef.php [recipefile]? Recipe not present at '.$recipeFilePath);
+            throw new \Exception('Have you run mchef.php [recipefile]? Recipe not present at ' . $recipeFilePath);
         }
         $this->recipe = $this->parseRecipe($recipeFilePath);
         StaticVars::$recipe = $this->recipe;
@@ -568,7 +570,7 @@ class Main extends AbstractService {
         $instanceName = $this->resolveActiveInstanceName();
         $instance = $this->configuratorService->getRegisteredInstance($instanceName);
         if (!$instance) {
-            throw new \Exception('Failed to get instance '.$instanceName);
+            throw new \Exception('Failed to get instance ' . $instanceName);
         }
         return $this->getRecipe($instance->recipePath);
     }
@@ -585,7 +587,7 @@ class Main extends AbstractService {
             }
         }
         $instanceName = $instanceName ?? $recipe->containerPrefix;
-        return $instanceName.'-'.$suffix;
+        return $instanceName . '-' . $suffix;
     }
 
     public function getDockerMoodleContainerName(?string $instanceName = null, ?Recipe $recipe = null) {
@@ -632,7 +634,7 @@ class Main extends AbstractService {
             $dockerData->reposUseSsh = $this->pluginsReposUseSsh($recipe);
         }
 
-        $containerName = 'mc-'.($this->recipe->containerPrefix ?? 'mchef').'-moodle';
+        $containerName = 'mc-' . ($this->recipe->containerPrefix ?? 'mchef') . '-moodle';
         $dockerData->containerName = $containerName;
 
         return $dockerData;
@@ -673,10 +675,10 @@ class Main extends AbstractService {
             try {
                 $dockerFileContents = $this->twig->render('@docker/main.dockerfile.twig', (array) $dockerData);
             } catch (\Exception $e) {
-                throw new Exception('Failed to parse main.dockerfile template: '.$e->getMessage());
+                throw new Exception('Failed to parse main.dockerfile template: ' . $e->getMessage());
             }
 
-            $dockerData->dockerFile = $dockerDir.'/Dockerfile';
+            $dockerData->dockerFile = $dockerDir . '/Dockerfile';
             file_put_contents($dockerData->dockerFile, $dockerFileContents);
 
             // Render docker-compose file for CI build
@@ -687,7 +689,6 @@ class Main extends AbstractService {
             // Build the image using docker compose
             $usesSsh = $this->pluginsReposUseSsh($recipe);
             $this->dockerService->buildImageWithCompose($ymlPath, $dockerData, $imageName, $dockerDir, $usesSsh);
-
         } finally {
             // Clean up build directory
             if (is_dir($buildDir)) {

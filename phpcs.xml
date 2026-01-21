@@ -42,4 +42,7 @@
   </rule>
   <rule ref="Generic.WhiteSpace.DisallowTabIndent"/>
 
+  <!-- Disallow trailing whitespace at end of lines -->
+  <rule ref="Generic.WhiteSpace.DisallowTrailingWhitespace"/>
+
 </ruleset>
