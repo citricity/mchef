@@ -166,7 +166,7 @@ class RecipeService extends AbstractService {
                     $recipe->$field = !empty($recipe->developer);
                 }
             }
-        }  else {
+        } else {
             $recipe->developer = false;
             foreach ($devFields as $field) {
                 $recipe->$field = false;
