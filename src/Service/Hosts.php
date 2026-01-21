@@ -66,6 +66,7 @@ class Hosts extends AbstractService {
 
     /**
      * Remove all mchef sections from the hosts file lines.
+     * Sections are identified by MCHEF_SECTION_START and MCHEF_SECTION_END markers.
      *
      * @param array $hostsLines Array of lines from the hosts file
      * @return array Array of lines with mchef sections removed
@@ -96,7 +97,7 @@ class Hosts extends AbstractService {
     }
 
     /**
-     * Check if a host already exists in the hosts file (outside of mchef sections).
+     * Check if a host already exists in the hosts file.
      *
      * @param array $hostsLines Array of lines from the hosts file
      * @param string $hostname The hostname to check
