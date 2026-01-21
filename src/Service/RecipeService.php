@@ -157,16 +157,19 @@ class RecipeService extends AbstractService {
         $portStr = $this->getPortString($recipe);
         $recipe->wwwRoot = $recipe->hostProtocol . '://' . $recipe->host . ($portStr);
 
-        $devFields = ['includeXdebug', 'includeBehat', 'includePhpUnit'];
+        
 
-        // Setup behat defaults.          
+        // Setup developer field defaults.
+        $devFields = ['includeXdebug', 'includeBehat', 'includePhpUnit'];      
         if (empty(StaticVars::$ciMode) || !empty($recipe->allowDevFeaturesInProduction)) {
+            // Not in CI mode - set dev features based on developer flag.
             foreach ($devFields as $field) {
                 if ($recipe->$field === null) {
                     $recipe->$field = !empty($recipe->developer);
                 }
             }
         } else {
+            // In CI mode - disable all dev features.
             $recipe->developer = false;
             foreach ($devFields as $field) {
                 $recipe->$field = false;
