@@ -62,8 +62,7 @@ $CFG->behat_faildump_path = '/var/www/html/moodle/behat_dump';
 $CFG->behat_increasetimeout = 2;
 
 // Create behat profiles using browser-config tool.
-$publicDir = $hasPublic ? 'public/' : '';
-require_once('{$publicDir}moodle-browser-config/init.php');
+require_once('moodle-browser-config/init.php');
 
 // Add additional host profiles so that you can see the tests running on your host (requires selenium or chrome driver to be running on host).
 // Note - currently only chrome driver is supported.
