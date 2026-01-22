@@ -656,14 +656,18 @@ class Main extends AbstractService {
         StaticVars::$recipe = $recipe;
 
         // Generate temporary project directory for build
-        $buildDir = $this->getChefPath() . '/ci-build-' . uniqid();
+        $buildDir = sys_get_temp_dir() . '/ci-build-' . uniqid();
         $dockerDir = $buildDir . '/docker';
         StaticVars::$ciDockerPath = $dockerDir;
 
         try {
             // Create build directory
-            if (!mkdir($dockerDir, 0755, true)) {
-                throw new Exception("Failed to create build directory: {$dockerDir}");
+            try {
+                if (!mkdir($dockerDir, 0755, true)) {
+                    throw new Exception("Failed to create build directory: {$dockerDir}");
+                }
+            } catch (\Exception $e) {
+                throw new Exception("Failed to create build directory: {$dockerDir}. " . $e->getMessage());
             }
 
             // Populate assets (e.g., xdebug install script)
