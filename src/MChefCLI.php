@@ -210,8 +210,10 @@ class MChefCLI extends CLI {
         $this->info($welcomeLine);
     }
 
-    public function getRecipePathFromArgs(): ?string {
-        $args = $this->options->getArgs();
+    public function getRecipePathFromArgs(?Options $options = null): ?string {
+        $options = $options ?? $this->options;
+        $args = $options->getArgs();
+
         if (empty($args) || empty($args[0])) {
             return null;
         }
@@ -265,9 +267,9 @@ class MChefCLI extends CLI {
         }
 
         if ($options->getArgs()) {
-            $recipePath = $this->getRecipePathFromArgs();
+            $recipePath = $this->getRecipePathFromArgs($options);
 
-            if (!file_exists($recipePath)) {
+            if (!$recipePath || !file_exists($recipePath)) {
                 throw new \App\Exceptions\CliRuntimeException('Recipe file does not exist: ' . $recipePath);
             }
 

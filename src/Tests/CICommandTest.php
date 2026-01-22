@@ -11,6 +11,7 @@ use App\Service\Docker;
 use App\Service\Environment;
 use App\Tests\MchefTestCase;
 use PHPUnit\Framework\MockObject\MockObject;
+use ReflectionClass;
 use splitbrain\phpcli\Options;
 
 class CICommandTest extends MchefTestCase {
@@ -61,10 +62,10 @@ class CICommandTest extends MchefTestCase {
     }
 
     public function testExecuteFailsWithNonExistentRecipe(): void {
-        $this->expectException(CliRuntimeException::class);
-        $this->expectExceptionMessage('Recipe file does not exist: nonexistent.json');
-        
+        $this->cli->method('getRecipePathFromArgs')->willReturn('nonexistent.json');
         $this->options->method('getArgs')->willReturn(['nonexistent.json']);
+        $this->expectException(CliRuntimeException::class);
+        $this->expectExceptionMessage('Recipe file does not exist: nonexistent.json');               
         
         $this->ciCommand->execute($this->options);
     }
@@ -74,6 +75,7 @@ class CICommandTest extends MchefTestCase {
         $this->expectExceptionMessage('Publish tag is required');
         
         $fixtureFile = __DIR__ . '/Fixtures/test-mrecipe.json';
+        $this->cli->method('getRecipePathFromArgs')->willReturn($fixtureFile);
         
         $this->options->method('getArgs')->willReturn([$fixtureFile]);
         $this->options->method('getOpt')->with('publish')->willReturn(null);
@@ -83,6 +85,7 @@ class CICommandTest extends MchefTestCase {
 
     public function testExecuteSuccessfulBuildWithoutPublish(): void {
         $fixtureFile = __DIR__ . '/Fixtures/test-mrecipe.json';
+        $this->cli->method('getRecipePathFromArgs')->willReturn($fixtureFile);
         
         $this->options->method('getArgs')->willReturn([$fixtureFile]);
         $this->options->method('getOpt')->with('publish')->willReturn('v1.5.0');
@@ -118,6 +121,7 @@ class CICommandTest extends MchefTestCase {
 
     public function testExecuteSuccessfulBuildAndPublish(): void {
         $fixtureFile = __DIR__ . '/Fixtures/test-mrecipe.json';
+        $this->cli->method('getRecipePathFromArgs')->willReturn($fixtureFile);
         
         $this->options->method('getArgs')->willReturn([$fixtureFile]);
         $this->options->method('getOpt')->with('publish')->willReturn('v1.5.0');
@@ -164,8 +168,8 @@ class CICommandTest extends MchefTestCase {
         
         // Expect success messages
         $this->cli->expects($this->atLeastOnce())->method('info');
-        $this->cli->expects($this->atLeastOnce())->method('success');
-        
+        $this->cli->expects($this->atLeastOnce())->method('success');       
+
         $this->ciCommand->execute($this->options);
     }
 
@@ -206,6 +210,7 @@ class CICommandTest extends MchefTestCase {
 
     public function testRecipeProductionOverrides(): void {
         $fixtureFile = __DIR__ . '/Fixtures/test-mrecipe.json';
+        $this->cli->method('getRecipePathFromArgs')->willReturn($fixtureFile);
         
         $reflection = new \ReflectionClass($this->ciCommand);
         $method = $reflection->getMethod('loadAndPrepareRecipe');
