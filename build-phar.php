@@ -26,8 +26,9 @@ try {
     $phar = new Phar($pharFile);
     $phar->startBuffering();
     
-    // Set the entry point
-    $phar->setStub($phar->createDefaultStub('phar-entry.php'));
+    // Set the entry point with custom stub that includes shebang
+    $stub = "#!/usr/bin/env php\n" . $phar->createDefaultStub('phar-entry.php');
+    $phar->setStub($stub);
     
     // Add the entry point file
     $phar->addFile('phar-entry.php');
