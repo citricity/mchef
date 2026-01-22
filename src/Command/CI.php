@@ -44,7 +44,7 @@ class CI extends AbstractCommand {
         }
 
         $recipePath = $this->cli->getRecipePathFromArgs();
-        if (!$recipePath) {
+        if (!file_exists($recipePath)) {
             throw new CliRuntimeException('Recipe file does not exist: ' . $recipePath);
         }
 
