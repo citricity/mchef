@@ -210,6 +210,31 @@ class MChefCLI extends CLI {
         $this->info($welcomeLine);
     }
 
+    public function getRecipePathFromArgs(): ?string {
+        $args = $this->options->getArgs();
+        if (!empty($args) && !empty($args[0])) {
+            $recipe = $args[0];
+
+            // Resolve recipe path:
+            // - If an absolute path is provided, use it directly.
+            // - Otherwise, look for the recipe relative to the current working directory.
+            $cwd = getcwd();
+            $isAbsolute = !OS::isWindows() ?
+                (strlen($recipe) > 0 && ($recipe[0] === '/' || $recipe[0] === '\\')) // Unix or UNC-style
+                : preg_match('/^[A-Za-z]:[\\\\\\/]/', $recipe) === 1; // Windows drive letter
+            if ($isAbsolute) {
+                $recipePath = $recipe;
+            } else {
+                // See if recipe is local to cwd.
+                $recipePath = OS::path($cwd . '/' . $recipe);
+            }
+        }
+        if (file_exists($recipePath)) {
+            return $recipePath;
+        }
+        return null;
+    }
+
     protected function main(Options $options) {
         $this->main = \App\Service\Main::instance($this);
 
@@ -239,23 +264,10 @@ class MChefCLI extends CLI {
             return;
         }
 
-        if ($args = $options->getArgs()) {
-            $recipe = $args[0];
+        if ($options->getArgs()) {
+            $recipePath = $this->getRecipePathFromArgs();
 
-            // Resolve recipe path:
-            // - If an absolute path is provided, use it directly.
-            // - Otherwise, look for the recipe relative to the current working directory.
-            $cwd = getcwd();
-            $isAbsolute = !OS::isWindows() ?
-                (strlen($recipe) > 0 && ($recipe[0] === '/' || $recipe[0] === '\\')) // Unix or UNC-style
-                : preg_match('/^[A-Za-z]:[\\\\\\/]/', $recipe) === 1; // Windows drive letter
-            if ($isAbsolute) {
-                $recipePath = $recipe;
-            } else {
-                // See if recipe is local to cwd.
-                $recipePath = OS::path($cwd . '/' . $recipe);
-            }
-            if (!file_exists($recipePath)) {
+            if (!$recipePath) {
                 throw new \splitbrain\phpcli\Exception('Recipe file does not exist: ' . $recipe);
             }
 
