@@ -32,6 +32,12 @@ try {
     // Add the entry point file
     $phar->addFile('phar-entry.php');
     
+    // Add VERSION file to the root of the PHAR if it exists
+    if (file_exists('VERSION')) {
+        $phar->addFile('VERSION', 'VERSION');
+        echo "Added VERSION file to PHAR root\n";
+    }
+    
     // Add all source files
     $iterator = new RecursiveIteratorIterator(
         new RecursiveDirectoryIterator('src', RecursiveDirectoryIterator::SKIP_DOTS)
