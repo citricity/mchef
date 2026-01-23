@@ -88,8 +88,8 @@ date_default_timezone_set('{{config.timezone}}');
 $CFG->defaultblocks = '{{config.defaultblocks}}';
 {% endif %}
 
-{% if (config.sslProxy != UNSET) %}
-$CFG->sslProxy = '{{config.sslProxy}}';
+{% if (config.sslproxy != UNSET) %}
+$CFG->sslproxy = '{{config.sslproxy}}';
 {% endif %}
 
 if (file_exists(__DIR__.'/config-local.php')) {
