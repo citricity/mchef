@@ -85,7 +85,6 @@ class CI extends AbstractCommand {
         $recipe = $this->mainService->getRecipe($recipePath);
         
         // Override fields for CI/production build
-        $recipe->cloneRepoPlugins = false;
         $recipe->mountPlugins = false;
         $recipe->developer = false;
         $recipe->includePhpUnit = false;
@@ -137,7 +136,7 @@ class CI extends AbstractCommand {
             $this->cli->info('  registryPassword / MCHEF_REGISTRY_PASSWORD (or registryToken / MCHEF_REGISTRY_TOKEN for token-based auth)');
             return;
         }
-        
+
         $this->cli->info("Publishing to registry: {$registryConfig['url']}");
         
         try {

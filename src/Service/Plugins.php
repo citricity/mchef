@@ -354,7 +354,7 @@ class Plugins extends AbstractService {
 
             // Only support single github hosted plugins for now.
             if (strpos($recipePlugin->repo, 'https://github.com') === 0 || strpos($recipePlugin->repo, 'git@github.com') === 0) {
-                if ($recipe->mountPlugins) {
+                if ($recipe->mountPlugins || StaticVars::$ciMode) {
 
                     $versionFileContents = $this->gitService->fetchRepoSingleFileContents(
                         $recipePlugin->repo,
