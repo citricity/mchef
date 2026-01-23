@@ -638,12 +638,13 @@ class Git extends AbstractService {
      * @param string $branch
      * @param string $path
      * @param string|null $upstream
+     * @param bool|null $shallow
      * @throws Exception
      */
-    public function cloneGitRepository($url, $branch, $path, ?string $upstream = null) {
-
+    public function cloneGitRepository($url, $branch, $path, ?string $upstream = null, ?bool $shallow = false) {        
+        $shallowOption = $shallow ? ' --depth 1' : '';
         if (empty($branch)) {
-            $cmd = "git clone $url $path";
+            $cmd = "git clone {$url} {$path}{$shallowOption}";
         } else {
             $branchOrTagExists = $this->branchOrTagExistsRemotely($url, $branch);
 
@@ -652,7 +653,7 @@ class Git extends AbstractService {
                 throw new Exception("Branch '$branch' does not exist for repository '$url'");
             }
 
-            $cmd = "git clone $url --branch $branch $path";
+            $cmd = "git clone {$url} --branch {$branch} {$path}{$shallowOption}";
         }
 
         exec($cmd, $output, $returnVar);

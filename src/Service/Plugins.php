@@ -348,6 +348,7 @@ class Plugins extends AbstractService {
         }
         $volumes = [];
         $plugins = [];
+        $shallowClone = StaticVars::$ciMode;
         foreach ($recipe->plugins as $plugin) {
 
             $recipePlugin = $this->extractRepoInfoFromPlugin($plugin);
@@ -370,7 +371,7 @@ class Plugins extends AbstractService {
                         $targetPath = $this->getPluginTargetPath($recipe, $recipePath, $pluginName);
                         if (!file_exists(OS::path($targetPath.'/version.php'))) {                                                  
                             $tmpDir = sys_get_temp_dir().'/'.uniqid('', true);
-                            $this->gitService->cloneGitRepository($recipePlugin->repo, $recipePlugin->branch, $tmpDir, $recipePlugin->upstream);
+                            $this->gitService->cloneGitRepository($recipePlugin->repo, $recipePlugin->branch, $tmpDir, $recipePlugin->upstream, $shallowClone);
                             $versionFiles = $this->findMoodleVersionFiles($tmpDir);
                             $versionFile = $versionFiles[0] ?? null;
                 
@@ -409,7 +410,7 @@ class Plugins extends AbstractService {
                     // Even without volume mounts, we need to get plugin info for Docker cloning
                     $tmpDir = sys_get_temp_dir().'/'.uniqid('', true);
                     
-                    $this->gitService->cloneGitRepository($recipePlugin->repo, $recipePlugin->branch, $tmpDir, $recipePlugin->upstream);
+                    $this->gitService->cloneGitRepository($recipePlugin->repo, $recipePlugin->branch, $tmpDir, $recipePlugin->upstream, $shallowClone);
                     $versionFiles = $this->findMoodleVersionFiles($tmpDir);
                     if (count($versionFiles) === 1) {
                         if (file_exists(OS::path($tmpDir.'/version.php'))) {
