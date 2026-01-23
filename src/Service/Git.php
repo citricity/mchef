@@ -458,6 +458,10 @@ class Git extends AbstractService {
      * @throws CliRuntimeException
      */
     public function branchOrTagExistsRemotely(string $repository, string $branchOrTagName, string $remoteName = 'origin'): bool {
+            // Clean the inputs first
+        $repository = trim($repository, '"\'');
+        $branchOrTagName = trim($branchOrTagName, '"\'');
+
         // Check if it's a remote tag
         $checkTagCmd = "git ls-remote --exit-code --tags " . escapeshellarg($repository) . " " . escapeshellarg($branchOrTagName);
         exec($checkTagCmd, $tagOutput, $tagReturnVar);
