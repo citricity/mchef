@@ -661,7 +661,7 @@ class Git extends AbstractService {
                 throw new Exception("Branch '$branch' does not exist for repository '$url'");
             }
 
-            $cmd = "git clone {$url} --branch {$branch}{$shallowOption} {$path}{$shallowOption}";
+            $cmd = "git clone {$url} --branch {$branch}{$shallowOption} {$path}";
         }
 
         exec($cmd, $output, $returnVar);
