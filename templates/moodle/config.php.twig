@@ -88,6 +88,14 @@ date_default_timezone_set('{{config.timezone}}');
 $CFG->defaultblocks = '{{config.defaultblocks}}';
 {% endif %}
 
+{% if (config.sslProxy != UNSET) %}
+$CFG->sslProxy = '{{config.sslProxy}}';
+{% endif %}
+
+if (file_exists(__DIR__.'/config-local.php')) {
+    // If a config-local.php file exists, always load it.
+    require_once(__DIR__.'/config-local.php');
+}
 
 {% if (customConfigFile) %}
 // Custom config file.
