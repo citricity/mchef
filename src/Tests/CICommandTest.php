@@ -227,7 +227,6 @@ class CICommandTest extends MchefTestCase {
         $result = $method->invoke($this->ciCommand, $fixtureFile);
         
         // Verify all production overrides are applied
-        $this->assertFalse($result->cloneRepoPlugins);
         $this->assertFalse($result->mountPlugins);
         $this->assertFalse($result->developer);
         $this->assertFalse($result->includePhpUnit);

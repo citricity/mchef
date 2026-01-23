@@ -2,19 +2,19 @@ name: Test MChef
 
 on:
   pull_request:
-    branches: [ main, master, develop ]
+    branches: [main, master, develop]
     paths-ignore:
-      - 'README.md'
-      - 'LICENSE'
-      - 'docs/**'
-      - '.gitignore'
+      - "README.md"
+      - "LICENSE"
+      - "docs/**"
+      - ".gitignore"
   push:
-    branches: [ main, master, develop ]
+    branches: [main, master, develop]
     paths-ignore:
-      - 'README.md'
-      - 'LICENSE' 
-      - 'docs/**'
-      - '.gitignore'
+      - "README.md"
+      - "LICENSE"
+      - "docs/**"
+      - ".gitignore"
   workflow_dispatch: # Allow manual triggering
 
 env:
@@ -28,38 +28,38 @@ jobs:
     timeout-minutes: 10
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up PHP
-      uses: shivammathur/setup-php@v2
-      with:
-        php-version: '8.2'
-        extensions: mbstring, xml, ctype, iconv, intl, pdo, pdo_mysql, pdo_pgsql
-        coverage: none
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          extensions: mbstring, xml, ctype, iconv, intl, pdo, pdo_mysql, pdo_pgsql
+          coverage: none
 
-    - name: Validate composer.json and composer.lock
-      run: composer validate --strict
+      - name: Validate composer.json and composer.lock
+        run: composer validate --strict
 
-    - name: Cache Composer packages
-      id: composer-cache
-      uses: actions/cache@v3
-      with:
-        path: vendor
-        key: ${{ runner.os }}-php-${{ hashFiles('**/composer.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-php-
+      - name: Cache Composer packages
+        id: composer-cache
+        uses: actions/cache@v3
+        with:
+          path: vendor
+          key: ${{ runner.os }}-php-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-php-
 
-    - name: Install dependencies
-      run: composer install --prefer-dist --no-progress
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress
 
-    - name: Run PHPUnit tests
-      run: php vendor/bin/phpunit src/Tests/ --testdox
+      - name: Run PHPUnit tests
+        run: php vendor/bin/phpunit src/Tests/ --testdox
 
-    - name: Test MChef CLI basic functionality
-      run: |
-        php mchef.php --help
-        php mchef.php --version || echo "No version flag available"
+      - name: Test MChef CLI basic functionality
+        run: |
+          php mchef.php --help
+          php mchef.php --version || echo "No version flag available"
 
   integration-test:
     name: Integration Tests
@@ -68,180 +68,180 @@ jobs:
     needs: unit-tests
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-    - name: Set up PHP
-      uses: shivammathur/setup-php@v2
-      with:
-        php-version: '8.2'
-        extensions: mbstring, xml, ctype, iconv, intl, pdo, pdo_pgsql
-        coverage: none
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          extensions: mbstring, xml, ctype, iconv, intl, pdo, pdo_pgsql
+          coverage: none
 
-    - name: Install dependencies
-      run: composer install --prefer-dist --no-progress
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress
 
-    - name: Create test directory
-      run: |
-        mkdir -p /tmp/mchef-test
-        cd /tmp/mchef-test
+      - name: Create test directory
+        run: |
+          mkdir -p /tmp/mchef-test
+          cd /tmp/mchef-test
 
-    - name: Create optimized test recipe
-      run: |
-        cd /tmp/mchef-test
-        cat > test-recipe.json << 'EOF'
-        {
-          "name": "ci-test",
-          "moodleTag": "v4.1.0",
-          "phpVersion": "8.0",
-          "plugins": [
-            {
-              "repo": "https://github.com/marcusgreen/moodle-qtype_gapfill.git",
-              "branch": "main"
-            }
-          ],
-          "containerPrefix": "ci-test",
-          "host": "ci-test.localhost",
-          "port": 8080,
-          "updateHostHosts": false,
-          "dbType": "pgsql",
-          "developer": true,
-          "mountPlugins": false
-        }
-        EOF
-        echo "Created test recipe:"
-        cat test-recipe.json
+      - name: Create optimized test recipe
+        run: |
+          cd /tmp/mchef-test
+          cat > test-recipe.json << 'EOF'
+          {
+            "name": "ci-test",
+            "moodleTag": "v4.1.0",
+            "phpVersion": "8.0",
+            "plugins": [
+              {
+                "repo": "https://github.com/gthomas2/moodle-filter_imageopt.git",
+                "branch": "master"
+              }
+            ],
+            "containerPrefix": "ci-test",
+            "host": "ci-test.localhost",
+            "port": 8080,
+            "updateHostHosts": false,
+            "dbType": "pgsql",
+            "developer": true,
+            "mountPlugins": false
+          }
+          EOF
+          echo "Created test recipe:"
+          cat test-recipe.json
 
-    - name: Initialize MChef with test recipe
-      run: |
-        cd /tmp/mchef-test
-        timeout 600 php ${{ github.workspace }}/mchef.php test-recipe.json &
-        MCHEF_PID=$!
-        
-        # Wait for containers to appear
-        echo "Waiting for containers to be created..."
-        for i in {1..60}; do
-          if docker ps -a --filter name=ci-test- --format "{{.Names}}" | grep -q ci-test; then
-            echo "✅ Containers found!"
-            docker ps -a --filter name=ci-test- --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
-            break
-          fi
-          if [ $i -eq 60 ]; then
-            echo "❌ Containers not created within timeout"
-            kill $MCHEF_PID 2>/dev/null || true
+      - name: Initialize MChef with test recipe
+        run: |
+          cd /tmp/mchef-test
+          timeout 600 php ${{ github.workspace }}/mchef.php test-recipe.json &
+          MCHEF_PID=$!
+
+          # Wait for containers to appear
+          echo "Waiting for containers to be created..."
+          for i in {1..60}; do
+            if docker ps -a --filter name=ci-test- --format "{{.Names}}" | grep -q ci-test; then
+              echo "✅ Containers found!"
+              docker ps -a --filter name=ci-test- --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+              break
+            fi
+            if [ $i -eq 60 ]; then
+              echo "❌ Containers not created within timeout"
+              kill $MCHEF_PID 2>/dev/null || true
+              exit 1
+            fi
+            echo "Waiting for containers... ($i/60)"
+            sleep 5
+          done
+
+          # Kill the MChef process
+          echo "Stopping MChef initialization process..."
+          kill $MCHEF_PID 2>/dev/null || true
+          wait $MCHEF_PID 2>/dev/null || true
+
+      - name: Verify containers are created
+        run: |
+          echo "Checking for containers..."
+          docker ps -a --filter name=ci-test- --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+
+          if docker ps -a --filter name=ci-test-moodle --format "{{.Names}}" | grep -q ci-test-moodle; then
+            echo "✅ Moodle container exists"
+          else
+            echo "❌ Moodle container not found"
             exit 1
           fi
-          echo "Waiting for containers... ($i/60)"
+
+          if docker ps -a --filter name=ci-test-db --format "{{.Names}}" | grep -q ci-test-db; then
+            echo "✅ Database container exists"
+          else
+            echo "❌ Database container not found"
+            exit 1
+          fi
+
+      - name: Test MChef commands
+        run: |
+          cd /tmp/mchef-test
+
+          echo "=== Testing MChef list command ==="
+          php ${{ github.workspace }}/mchef.php list
+
+          echo "=== Testing MChef use command ==="
+          php ${{ github.workspace }}/mchef.php use ci-test || echo "Use command failed (expected in CI)"
+
+          echo "=== Testing MChef up command ==="
+          php ${{ github.workspace }}/mchef.php up ci-test
+
+          echo "=== Testing MChef config command ==="
+          php ${{ github.workspace }}/mchef.php config --help
+
+          echo "=== Testing MChef database command ==="
+          php ${{ github.workspace }}/mchef.php database --help
+
+      - name: Verify containers are running after up command
+        run: |
+          echo "Verifying containers are running..."
           sleep 5
-        done
-        
-        # Kill the MChef process
-        echo "Stopping MChef initialization process..."
-        kill $MCHEF_PID 2>/dev/null || true
-        wait $MCHEF_PID 2>/dev/null || true
+          docker ps --filter name=ci-test- --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 
-    - name: Verify containers are created
-      run: |
-        echo "Checking for containers..."
-        docker ps -a --filter name=ci-test- --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
-        
-        if docker ps -a --filter name=ci-test-moodle --format "{{.Names}}" | grep -q ci-test-moodle; then
-          echo "✅ Moodle container exists"
-        else
-          echo "❌ Moodle container not found"
-          exit 1
-        fi
-        
-        if docker ps -a --filter name=ci-test-db --format "{{.Names}}" | grep -q ci-test-db; then
-          echo "✅ Database container exists"
-        else
-          echo "❌ Database container not found"
-          exit 1
-        fi
+          # Check if Moodle container is responding
+          if docker ps --filter name=ci-test-moodle --filter status=running --format "{{.Names}}" | grep -q ci-test-moodle; then
+            echo "✅ Moodle container is running"
+          else
+            echo "⚠️ Moodle container is not running (might still be starting)"
+            docker ps --filter name=ci-test-moodle --format "table {{.Names}}\t{{.Status}}"
+          fi
 
-    - name: Test MChef commands
-      run: |
-        cd /tmp/mchef-test
-        
-        echo "=== Testing MChef list command ==="
-        php ${{ github.workspace }}/mchef.php list
-        
-        echo "=== Testing MChef use command ==="
-        php ${{ github.workspace }}/mchef.php use ci-test || echo "Use command failed (expected in CI)"
-        
-        echo "=== Testing MChef up command ==="
-        php ${{ github.workspace }}/mchef.php up ci-test
-        
-        echo "=== Testing MChef config command ==="
-        php ${{ github.workspace }}/mchef.php config --help
-        
-        echo "=== Testing MChef database command ==="
-        php ${{ github.workspace }}/mchef.php database --help
+          # Check if DB container is responding
+          if docker ps --filter name=ci-test-db --filter status=running --format "{{.Names}}" | grep -q ci-test-db; then
+            echo "✅ Database container is running"
+          else
+            echo "⚠️ Database container is not running (might still be starting)"
+            docker ps --filter name=ci-test-db --format "table {{.Names}}\t{{.Status}}"
+          fi
 
-    - name: Verify containers are running after up command
-      run: |
-        echo "Verifying containers are running..."
-        sleep 5
-        docker ps --filter name=ci-test- --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
-        
-        # Check if Moodle container is responding
-        if docker ps --filter name=ci-test-moodle --filter status=running --format "{{.Names}}" | grep -q ci-test-moodle; then
-          echo "✅ Moodle container is running"
-        else
-          echo "⚠️ Moodle container is not running (might still be starting)"
-          docker ps --filter name=ci-test-moodle --format "table {{.Names}}\t{{.Status}}"
-        fi
-        
-        # Check if DB container is responding
-        if docker ps --filter name=ci-test-db --filter status=running --format "{{.Names}}" | grep -q ci-test-db; then
-          echo "✅ Database container is running"
-        else
-          echo "⚠️ Database container is not running (might still be starting)"
-          docker ps --filter name=ci-test-db --format "table {{.Names}}\t{{.Status}}"
-        fi
+      - name: Test MChef halt command
+        run: |
+          cd /tmp/mchef-test
+          echo "Testing halt command..."
+          php ${{ github.workspace }}/mchef.php halt ci-test
 
-    - name: Test MChef halt command
-      run: |
-        cd /tmp/mchef-test
-        echo "Testing halt command..."
-        php ${{ github.workspace }}/mchef.php halt ci-test
-        
-        # Verify containers are stopped
-        sleep 3
-        echo "Verifying containers are stopped..."
-        docker ps --filter name=ci-test- --format "table {{.Names}}\t{{.Status}}"
+          # Verify containers are stopped
+          sleep 3
+          echo "Verifying containers are stopped..."
+          docker ps --filter name=ci-test- --format "table {{.Names}}\t{{.Status}}"
 
-    - name: Check container logs for errors
-      if: failure()
-      run: |
-        echo "=== Moodle Container Logs ==="
-        docker logs ci-test-moodle || echo "No Moodle container logs"
-        echo "=== Database Container Logs ==="
-        docker logs ci-test-db || echo "No database container logs"
-        echo "=== All Containers ==="
-        docker ps -a
+      - name: Check container logs for errors
+        if: failure()
+        run: |
+          echo "=== Moodle Container Logs ==="
+          docker logs ci-test-moodle || echo "No Moodle container logs"
+          echo "=== Database Container Logs ==="
+          docker logs ci-test-db || echo "No database container logs"
+          echo "=== All Containers ==="
+          docker ps -a
 
-    - name: Cleanup containers and images
-      if: always()
-      run: |
-        echo "Cleaning up containers..."
-        docker ps -a --filter name=ci-test- --format "{{.Names}}" | xargs -r docker rm -f || true
-        docker images --filter reference="*ci-test*" --format "{{.Repository}}:{{.Tag}}" | xargs -r docker rmi -f || true
-        docker system prune -f || true
+      - name: Cleanup containers and images
+        if: always()
+        run: |
+          echo "Cleaning up containers..."
+          docker ps -a --filter name=ci-test- --format "{{.Names}}" | xargs -r docker rm -f || true
+          docker images --filter reference="*ci-test*" --format "{{.Repository}}:{{.Tag}}" | xargs -r docker rmi -f || true
+          docker system prune -f || true
 
-    - name: Test results summary
-      if: always()
-      run: |
-        echo "🎉 MChef CI Test Summary:"
-        echo "✅ Composer dependencies installed"
-        echo "✅ PHPUnit tests passed"
-        echo "✅ MChef recipe initialization"
-        echo "✅ Container creation and management"
-        echo "✅ Core commands tested (list, use, up, halt)"
-        echo "✅ Container lifecycle verified"
+      - name: Test results summary
+        if: always()
+        run: |
+          echo "🎉 MChef CI Test Summary:"
+          echo "✅ Composer dependencies installed"
+          echo "✅ PHPUnit tests passed"
+          echo "✅ MChef recipe initialization"
+          echo "✅ Container creation and management"
+          echo "✅ Core commands tested (list, use, up, halt)"
+          echo "✅ Container lifecycle verified"
 
   # Required status check job that all other jobs depend on
   all-tests-passed:
@@ -249,21 +249,21 @@ jobs:
     runs-on: ubuntu-latest
     needs: [unit-tests, integration-test]
     if: always()
-    
+
     steps:
-    - name: Check test results
-      run: |
-        echo "Unit tests status: ${{ needs.unit-tests.result }}"
-        echo "Integration tests status: ${{ needs.integration-test.result }}"
-        
-        if [[ "${{ needs.unit-tests.result }}" != "success" ]]; then
-          echo "❌ Unit tests failed"
-          exit 1
-        fi
-        
-        if [[ "${{ needs.integration-test.result }}" != "success" ]]; then
-          echo "❌ Integration tests failed" 
-          exit 1
-        fi
-        
-        echo "✅ All tests passed successfully!"
+      - name: Check test results
+        run: |
+          echo "Unit tests status: ${{ needs.unit-tests.result }}"
+          echo "Integration tests status: ${{ needs.integration-test.result }}"
+
+          if [[ "${{ needs.unit-tests.result }}" != "success" ]]; then
+            echo "❌ Unit tests failed"
+            exit 1
+          fi
+
+          if [[ "${{ needs.integration-test.result }}" != "success" ]]; then
+            echo "❌ Integration tests failed" 
+            exit 1
+          fi
+
+          echo "✅ All tests passed successfully!"
