@@ -26,11 +26,18 @@ try {
     $phar = new Phar($pharFile);
     $phar->startBuffering();
     
-    // Set the entry point
-    $phar->setStub($phar->createDefaultStub('phar-entry.php'));
+    // Set the entry point with custom stub that includes shebang
+    $stub = "#!/usr/bin/env php\n" . $phar->createDefaultStub('phar-entry.php');
+    $phar->setStub($stub);
     
     // Add the entry point file
     $phar->addFile('phar-entry.php');
+    
+    // Add VERSION file to the root of the PHAR if it exists
+    if (file_exists('VERSION')) {
+        $phar->addFile('VERSION', 'VERSION');
+        echo "Added VERSION file to PHAR root\n";
+    }
     
     // Add all source files
     $iterator = new RecursiveIteratorIterator(

@@ -27,6 +27,11 @@ jobs:
         run: |
           composer install --no-dev --optimize-autoloader --no-interaction
 
+      - name: Extract version tag
+        run: |
+          echo "${GITHUB_REF#refs/tags/}" > VERSION
+          echo "Version: $(cat VERSION)"
+
       - name: Build PHAR
         run: |
           php build-phar.php

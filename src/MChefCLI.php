@@ -8,7 +8,7 @@ use App\Helpers\OS;
 use App\Helpers\SplitbrainWrapper;
 
 class MChefCLI extends CLI {
-    static $version = '1.1.5';
+    static $version = '1.1.5'; // This gets replaced during phar build process.
 
     /**
      * @var \App\Service\Main;
@@ -31,12 +31,22 @@ class MChefCLI extends CLI {
     public function __construct($autocatch = true) {
         require_once(__DIR__ . '/lib.php');
         require_once(__DIR__ . '/Polyfills/index.php');
+
+        $this->setVersion();
         
         // Suppress splitbrain deprecation warnings during construction
         SplitbrainWrapper::suppressDeprecationWarnings(function() use ($autocatch) {
             parent::__construct($autocatch);
         });
         StaticVars::$cli = $this;
+    }
+
+    private function setVersion() {
+        // This gets added to phar during build process.
+        $versionFile = __DIR__ . '/../VERSION';
+        if (file_exists($versionFile)) {
+            self::$version = trim(file_get_contents($versionFile));
+        }
     }
 
     private function registerCommands(Options $options) {
@@ -70,6 +80,7 @@ class MChefCLI extends CLI {
         $options->registerOption('installexec', 'Install executable version of mchef.php to users bin folder', 'i');
         $options->registerOption('version', 'Print version', 'v');
         $options->registerOption('nocache', 'Disable caching when adding plugins and pulling docker images', null, false);
+        $options->registerOption('yes', 'Skip confirmation prompts', 'y', false);
     }
 
     /**
@@ -194,10 +205,36 @@ class MChefCLI extends CLI {
         echo $text;
     }
 
-
     private function welcomeLine() {
         $welcomeLine = 'Mchef: '.self::$version.' © Citricity 2024 onwards. www.citricity.com';
         $this->info($welcomeLine);
+    }
+
+    public function getRecipePathFromArgs(?Options $options = null): ?string {
+        $options = $options ?? $this->options;
+        $args = $options->getArgs();
+
+        if (empty($args) || empty($args[0])) {
+            return null;
+        }
+        
+        $recipe = $args[0];
+
+        // Resolve recipe path:
+        // - If an absolute path is provided, use it directly.
+        // - Otherwise, look for the recipe relative to the current working directory.
+        $cwd = getcwd();
+        $isAbsolute = !OS::isWindows() ?
+            (strlen($recipe) > 0 && ($recipe[0] === '/' || $recipe[0] === '\\')) // Unix or UNC-style
+            : preg_match('/^[A-Za-z]:[\\\\\\/]/', $recipe) === 1; // Windows drive letter
+        if ($isAbsolute) {
+            $recipePath = $recipe;
+        } else {
+            // See if recipe is local to cwd.
+            $recipePath = OS::path($cwd . '/' . $recipe);
+        }
+        
+        return $recipePath;
     }
 
     protected function main(Options $options) {
@@ -229,13 +266,19 @@ class MChefCLI extends CLI {
             return;
         }
 
-        if ($args = $options->getArgs()) {
-            $recipe = $args[0];            
-            // Important - if we are upping a new recipe then we should temprarilly unset the currently selected instance.
+        if ($options->getArgs()) {
+            $recipePath = $this->getRecipePathFromArgs($options);
+
+            if (!$recipePath || !file_exists($recipePath)) {
+                throw new \App\Exceptions\CliRuntimeException('Recipe file does not exist: ' . $recipePath);
+            }
+
+            // Important - if we are upping a new recipe then we should temporarily unset the currently selected instance.
             $configurator = \App\Service\Configurator::instance();
+
             $instance = $configurator->getMainConfig()->instance;
             $configurator->setMainConfigField('instance', null);
-            $this->main->up($recipe);
+            $this->main->up($recipePath);
             
             // Get the recipe to find the container prefix (new instance name)
             $recipeObj = $this->main->getRecipe();
@@ -286,6 +329,13 @@ class MChefCLI extends CLI {
         string $default = 'n'
     ): mixed {
         echo $msg;
+
+        $forceAllYes = $this->options->getOpt('yes');
+        if ($forceAllYes) {
+            echo " (Forced Yes)\n";
+            return $onYes ? $onYes('y') : true;
+        }
+
         $suffix = $default === 'y' ? '[Y/n]' : '[y/N]';
         $input = readline(" $suffix ");
         $input = trim($input);
