@@ -89,7 +89,7 @@ $CFG->defaultblocks = '{{config.defaultblocks}}';
 {% endif %}
 
 {% if (config.sslproxy != UNSET) %}
-$CFG->sslproxy = '{{config.sslproxy}}';
+$CFG->sslproxy = {{config.sslproxy}};
 {% endif %}
 
 if (file_exists(__DIR__.'/config-local.php')) {
