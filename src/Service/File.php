@@ -5,6 +5,7 @@ namespace App\Service;
 use App\Exceptions\ExecFailed;
 use App\Helpers\OS;
 use App\Traits\ExecTrait;
+use Phar;
 use splitbrain\phpcli\Exception;
 
 class File extends AbstractService {
@@ -163,32 +164,41 @@ class File extends AbstractService {
      *
      * @param string $dir
      */
-public function deleteDir(string $dir): void {
-    if (!is_dir($dir)) {
-        return;
-    }
-    
-    $scanResult = scandir($dir);
-    if ($scanResult === false) {
-        throw new Exception('Failed to read directory: ' . $dir . ' - check permissions');
-    }
-    
-    $files = array_diff($scanResult, ['.', '..']);
-    foreach ($files as $file) {
-        $path = $dir . DIRECTORY_SEPARATOR . $file;
-        if (is_dir($path)) {
-            $this->deleteDir($path);
-        } else {
-            if (!unlink($path)) {
-                throw new Exception('Failed to delete file: ' . $path . ' - check permissions');
+    public function deleteDir(string $dir): void {
+        if (!is_dir($dir)) {
+            return;
+        }
+        
+        $scanResult = scandir($dir);
+        if ($scanResult === false) {
+            throw new Exception('Failed to read directory: ' . $dir . ' - check permissions');
+        }
+        
+        $files = array_diff($scanResult, ['.', '..']);
+        foreach ($files as $file) {
+            $path = $dir . DIRECTORY_SEPARATOR . $file;
+            if (is_dir($path)) {
+                $this->deleteDir($path);
+            } else {
+                if (!unlink($path)) {
+                    throw new Exception('Failed to delete file: ' . $path . ' - check permissions');
+                }
             }
         }
+        
+        if (!rmdir($dir)) {
+            throw new Exception('Failed to remove directory: ' . $dir . ' - check permissions or if directory is empty');
+        }
     }
-    
-    if (!rmdir($dir)) {
-        throw new Exception('Failed to remove directory: ' . $dir . ' - check permissions or if directory is empty');
+
+    public function getMchefBasePath(): string {
+        // If running from PHAR
+        if (strpos(__FILE__, 'phar://') === 0) {
+            return dirname(Phar::running(false));
+        }
+        // If running from source
+        return dirname(dirname(__DIR__));
     }
-}
 
     public function copyFilesFromDirToDir(string $sourceDir, string $targetDir, int $depth = 0): void {
         if ($depth === 0) {
