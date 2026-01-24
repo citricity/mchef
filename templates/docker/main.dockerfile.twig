@@ -36,7 +36,7 @@ RUN apt update && apt install --no-install-recommends -y mariadb-client
 {% endif %}
 
 # Install cron but don't enable by default
-RUN apt-get update && apt-get install -y cron && rm -rf /var/lib/apt/lists/*
+RUN apt update && apt install -y cron && rm -rf /var/lib/apt/lists/*
 
 RUN \
     mkdir -p $MOODLE_DATA  && \
@@ -97,7 +97,7 @@ RUN rm -rf $MOODLE_PATH/*
 RUN git clone https://github.com/moodle/moodle.git --branch $MOODLE_TAG --depth 1 $MOODLE_PATH
 
 {% if reposUseSsh %}
-RUN apt-get install --no-install-recommends -y git openssh-client
+RUN apt update && apt install --no-install-recommends -y git openssh-client
 RUN mkdir -p -m 0700 ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
 {% endif %}
 

@@ -163,42 +163,67 @@ class File extends AbstractService {
      *
      * @param string $dir
      */
-    public function deleteDir(string $dir): void {
-        if (!is_dir($dir)) {
-            return;
-        }
-        
-        $files = array_diff(scandir($dir), ['.', '..']);
-        foreach ($files as $file) {
-            $path = $dir . DIRECTORY_SEPARATOR . $file;
-            if (is_dir($path)) {
-                $this->deleteDir($path);
-            } else {
-                unlink($path);
+public function deleteDir(string $dir): void {
+    if (!is_dir($dir)) {
+        return;
+    }
+    
+    $scanResult = scandir($dir);
+    if ($scanResult === false) {
+        throw new Exception('Failed to read directory: ' . $dir . ' - check permissions');
+    }
+    
+    $files = array_diff($scanResult, ['.', '..']);
+    foreach ($files as $file) {
+        $path = $dir . DIRECTORY_SEPARATOR . $file;
+        if (is_dir($path)) {
+            $this->deleteDir($path);
+        } else {
+            if (!unlink($path)) {
+                throw new Exception('Failed to delete file: ' . $path . ' - check permissions');
             }
         }
-        rmdir($dir);
     }
+    
+    if (!rmdir($dir)) {
+        throw new Exception('Failed to remove directory: ' . $dir . ' - check permissions or if directory is empty');
+    }
+}
 
     public function copyFilesFromDirToDir(string $sourceDir, string $targetDir, int $depth = 0): void {
-        $this->folderRestrictionCheck($sourceDir, 'copy');
+        if ($depth === 0) {
+            $this->folderRestrictionCheck($sourceDir, 'copy');
+            if (!is_dir($sourceDir)) {
+                throw new Exception('Source directory does not exist: ' . $sourceDir);
+            }
+            if (!is_dir($targetDir)) {
+                throw new Exception('Target directory does not exist: ' . $targetDir);
+            }
+        }
+        
         $this->folderRestrictionCheck($targetDir, 'copy');
-        if ($depth === 0 && !is_dir($targetDir)) {
-            throw new Exception('Target directory does not exist: ' . $targetDir);
+
+        $scanResult = scandir($sourceDir);
+        if ($scanResult === false) {
+            throw new Exception('Failed to read source directory: ' . $sourceDir . ' - check permissions or if directory exists');
         }
 
-        $files = array_diff(scandir($sourceDir), ['.', '..']);
+        $files = array_diff($scanResult, ['.', '..']);
         foreach ($files as $file) {
             $srcPath = $sourceDir . DIRECTORY_SEPARATOR . $file;
             $destPath = $targetDir . DIRECTORY_SEPARATOR . $file;
 
             if (is_dir($srcPath)) {
                 if (!is_dir($destPath)) {
-                    mkdir($destPath, 0755, true);
+                    if (!mkdir($destPath, 0755, true)) {
+                        throw new Exception('Failed to create directory: ' . $destPath . ' - check permissions');
+                    }
                 }
                 $this->copyFilesFromDirToDir($srcPath, $destPath, $depth + 1);
             } else {
-                copy($srcPath, $destPath);
+                if (!copy($srcPath, $destPath)) {
+                    throw new Exception('Failed to copy file from ' . $srcPath . ' to ' . $destPath . ' - check permissions and disk space');
+                }
             }
         }
     }
