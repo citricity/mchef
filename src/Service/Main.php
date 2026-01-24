@@ -552,21 +552,21 @@ class Main extends AbstractService {
      */
     private function prepareDockerDataForCI(Recipe $recipe): DockerData {
         // Create docker data with no volumes (CI build)
-        $moodlePath = $this->moodleService->getDockerMoodlePath($this->recipe);
-        $usePublic = $this->moodleService->shouldUsePublicFolder($this->recipe);
+        $moodlePath = $this->moodleService->getDockerMoodlePath($recipe);
+        $usePublic = $this->moodleService->shouldUsePublicFolder($recipe);
         $dockerData = new DockerData([], $moodlePath, $usePublic, null, ...(array) $recipe);
         $dockerData->volumes = [];
 
-        // Add plugin data for dockerfile shallow cloning (if not disabled)
-        // TODO - note that CI is going to require some way to clone these repos via ssh in some cases.
-        // We will need to add a SSH_KEY github env variable.
-        if ($recipe->plugins && !$recipe->cloneRepoPlugins) {
+        // Add plugin data for dockerfile shallow cloning.
+        if ($recipe->plugins) {
+            $this->cli->info('Adding plugin data for CI dockerfile shallow clone...');
+            $this->pluginInfo = $this->pluginsService->getPluginsInfoFromRecipe($recipe);
             $pluginsForDocker = $this->getPluginsForDocker($recipe);
             $dockerData->pluginsForDocker = $pluginsForDocker;
             $dockerData->reposUseSsh = $this->pluginsReposUseSsh($recipe);
         }
 
-        $containerName = 'mc-' . ($this->recipe->containerPrefix ?? 'mchef') . '-moodle';
+        $containerName = 'mc-' . ($recipe->containerPrefix ?? 'mchef') . '-moodle';
         $dockerData->containerName = $containerName;
 
         return $dockerData;
@@ -583,6 +583,7 @@ class Main extends AbstractService {
         $this->cli->info("Building Docker image: {$imageName}");
 
         StaticVars::$ciMode = true;
+        StaticVars::$noCache = true;
 
         // Set static vars for template rendering
         StaticVars::$recipe = $recipe;

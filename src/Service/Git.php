@@ -458,6 +458,10 @@ class Git extends AbstractService {
      * @throws CliRuntimeException
      */
     public function branchOrTagExistsRemotely(string $repository, string $branchOrTagName, string $remoteName = 'origin'): bool {
+            // Clean the inputs first
+        $repository = trim($repository, '"\'');
+        $branchOrTagName = trim($branchOrTagName, '"\'');
+
         // Check if it's a remote tag
         $checkTagCmd = "git ls-remote --exit-code --tags " . escapeshellarg($repository) . " " . escapeshellarg($branchOrTagName);
         exec($checkTagCmd, $tagOutput, $tagReturnVar);
@@ -638,12 +642,17 @@ class Git extends AbstractService {
      * @param string $branch
      * @param string $path
      * @param string|null $upstream
+     * @param bool|null $shallow
      * @throws Exception
      */
-    public function cloneGitRepository($url, $branch, $path, ?string $upstream = null) {
-
+    public function cloneGitRepository($url, $branch, $path, ?string $upstream = null, ?bool $shallow = false) {
+        $url = escapeshellarg($url);
+        $branch = !empty($branch) ? escapeshellarg($branch) : '';
+        $path = escapeshellarg($path);
+        $upstream = !empty($upstream) ? escapeshellarg($upstream) : null;
+        $shallowOption = $shallow ? ' --depth 1' : '';
         if (empty($branch)) {
-            $cmd = "git clone $url $path";
+            $cmd = "git clone {$url}{$shallowOption} {$path}";
         } else {
             $branchOrTagExists = $this->branchOrTagExistsRemotely($url, $branch);
 
@@ -652,7 +661,7 @@ class Git extends AbstractService {
                 throw new Exception("Branch '$branch' does not exist for repository '$url'");
             }
 
-            $cmd = "git clone $url --branch $branch $path";
+            $cmd = "git clone {$url} --branch {$branch}{$shallowOption} {$path}";
         }
 
         exec($cmd, $output, $returnVar);
