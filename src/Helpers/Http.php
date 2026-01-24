@@ -34,6 +34,8 @@ class HttpResponse
 
 class Http
 {
+    const USER_AGENT = 'MChef/1.0';
+
     /**
      * Make a GET request
      */
@@ -77,7 +79,7 @@ class Http
             $headers['accept'] = '*/*';
         }
         if (!isset($headers['user-agent'])) {
-            $headers['user-agent'] = 'MChef/1.0';
+            $headers['user-agent'] = self::USER_AGENT;
         }
         $ch = curl_init();
 
@@ -208,7 +210,7 @@ class Http
                 'header' => implode("\r\n", $headerStrings),
                 'timeout' => $options['timeout'] ?? 30,
                 'ignore_errors' => true,
-                'user_agent' => 'MChef/1.0',
+                'user_agent' => self::USER_AGENT,
             ]
         ];
 
@@ -232,6 +234,12 @@ class Http
             $GLOBALS['http_response_header'] = $http_response_header;
         }
         $headerLines = http_get_last_response_headers() ?? [];
+
+        if (empty($headerLines)) {
+            // If no $http_response_header, it means the request completely failed
+            throw new \RuntimeException("No response headers received - network error for URL: {$url}");
+        }
+        
         foreach ($headerLines as $line) {
             if (strpos($line, ':') !== false) {
                 [$name, $value] = explode(':', $line, 2);
@@ -240,7 +248,7 @@ class Http
         }
 
         // Extract status code from first header line
-        $statusCode = 200;
+        $statusCode = 200; // Default fallback
         if (isset($headerLines[0]) && preg_match('/HTTP\/\S+\s(\d{3})/', $headerLines[0], $matches)) {
             $statusCode = (int)$matches[1];
         }

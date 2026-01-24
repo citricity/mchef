@@ -45,6 +45,63 @@ class Github extends AbstractService {
     }
 
     public function fetchGithubRepoSingleFileContents(string $url, string $branchOrTag, string $filePath): ?string {
+        $token = getenv('MCHEF_GITHUB_PAT') ?: null;
+        if ($token) {
+            // Fetch via GitHub API with authentication
+            try {
+                return $this->fetchViaApi($url, $branchOrTag, $filePath, $token);
+            } catch (CliRuntimeException $e) {
+                // If API fails, fall back to raw URL method
+                $this->cli->info("GitHub API failed, falling back to raw URL: " . $e->getMessage());
+                return $this->fetchGithubRepoSingleFileContentsFallback($url, $branchOrTag, $filePath, $token);
+            }
+        } else {
+            return $this->fetchGithubRepoSingleFileContentsFallback($url, $branchOrTag, $filePath);
+        }
+    }
+
+    private function fetchViaApi(string $url, string $branchOrTag, string $filePath, string $token): ?string {
+        [$owner, $repo] = $this->extractGithubOwnerRepo($url);
+
+        $apiUrl = sprintf(
+            'https://api.github.com/repos/%s/%s/contents/%s?ref=%s',
+            rawurlencode($owner),
+            rawurlencode($repo),
+            rawurlencode(ltrim($filePath, '/')),
+            rawurlencode($branchOrTag)
+        );
+
+        $response = Http::get($apiUrl, ['Authorization' => 'Bearer ' . $token]);
+
+        switch ($response->statusCode) {
+            case 200:
+                $data = json_decode($response->body, true);
+                if (!$data || !isset($data['content'])) {
+                    throw new CliRuntimeException("Invalid API response format");
+                }
+                
+                // GitHub API returns base64-encoded content with newlines; strip them before decoding
+                return base64_decode(str_replace(["\n", "\r"], '', $data['content']));
+
+            case 404:
+                return null; // File doesn't exist
+
+            case 403:
+                $error = json_decode($response->body, true);
+                if (isset($error['message']) && str_contains($error['message'], 'rate limit')) {
+                    throw new CliRuntimeException("GitHub API rate limit exceeded");
+                }
+                throw new CliRuntimeException("GitHub API access forbidden - check token permissions");
+
+            case 401:
+                throw new CliRuntimeException("GitHub API authentication failed - invalid token");
+
+            default:
+                throw new CliRuntimeException("GitHub API error {$response->statusCode}: {$response->body}");
+        }
+    }
+
+    private function fetchGithubRepoSingleFileContentsFallback(string $url, string $branchOrTag, string $filePath, ?string $token = null): ?string {
         $rawBaseUrl = $this->githubToRawBaseUrl($url);
         $fullUrl = sprintf(
             '%s/%s/%s',
@@ -53,18 +110,14 @@ class Github extends AbstractService {
             ltrim($filePath, '/')
         );
 
-        $response = Http::get($fullUrl);
+        $response = Http::get($fullUrl, ($token ? ['Authorization' => 'Bearer ' . $token] : []));
 
         // No headers = hard failure: DNS, SSL, network down, etc.
         if (empty($response->headers)) {
             throw new CliRuntimeException("No response from GitHub when requesting: {$fullUrl}");
         }
         $content = $response->body;
-        // Parse status line, e.g. "HTTP/1.1 200 OK"
-        $statusLine = $response->headers[0];
-        preg_match('{HTTP/\S+\s(\d{3})}', $statusLine, $match);
-        $status = isset($match[1]) ? (int)$match[1] : 0;
-
+        $status = $response->statusCode;
         switch ($status) {
             case 200:
                 return $content; // success
@@ -99,7 +152,44 @@ class Github extends AbstractService {
      * Check if a folder exists in a GitHub repository at a specific tag or branch
      */
     public function githubFolderExists(string $repositoryUrl, string $branchOrTag, string $folderPath): bool {
-        [$owner, $repo] = $this->extractGithubOwnerRepo($repositoryUrl);
+        // TODO - use github API
+        $token = getenv('MCHEF_GITHUB_PAT') ?: null;
+        if (!$token) {
+            return $this->githubFolderExistsFallback($repositoryUrl, $branchOrTag, $folderPath);
+        }
+        // Fetch via GitHub API with authentication
+        try {
+            [$owner, $repo] = $this->extractGithubOwnerRepo($repositoryUrl);
+
+            $apiUrl = sprintf(
+                'https://api.github.com/repos/%s/%s/contents/%s?ref=%s',
+                rawurlencode($owner),
+                rawurlencode($repo),
+                rawurlencode(ltrim($folderPath, '/')),
+                rawurlencode($branchOrTag)
+            );
+
+            $response = Http::get($apiUrl, ['Authorization' => 'Bearer ' . $token]);
+
+            switch ($response->statusCode) {
+                case 200:
+                    $data = json_decode($response->body, true);
+                    return is_array($data) && !empty($data); // Folder exists
+
+                case 404:
+                    return false; // Folder doesn't exist
+
+                default:
+                    throw new CliRuntimeException("GitHub API error {$response->statusCode}: {$response->body}");
+            }
+        } catch (Exception $e) {
+            $this->cli->info("GitHub API failed, falling back to raw URL: " . $e->getMessage());
+            return $this->githubFolderExistsFallback($repositoryUrl, $branchOrTag, $folderPath);
+        }
+    }
+
+    private function githubFolderExistsFallback(string $repositoryUrl, string $branchOrTag, string $folderPath): bool {
+            [$owner, $repo] = $this->extractGithubOwnerRepo($repositoryUrl);
 
         $apiUrl = sprintf(
             'https://api.github.com/repos/%s/%s/contents/%s?ref=%s',
@@ -122,5 +212,5 @@ class Github extends AbstractService {
             return false;
         }
         return is_array($jsonobj);
-    }
+    }        
 }
