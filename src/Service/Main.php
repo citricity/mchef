@@ -282,6 +282,10 @@ class Main extends AbstractService {
             mkdir($assetsPath, 0755, true);
         }
 
+        // Copy all static assets from assets folder.
+        $staticAssetsPath = __DIR__ . '/../../assets';
+        $this->fileService->copyFilesFromDirToDir($staticAssetsPath, $assetsPath);    
+
         $this->moodleConfigService->processConfigFile($recipe);
         $scriptsAssetsPath = $assetsPath . '/scripts';
         if (!file_exists($scriptsAssetsPath)) {

@@ -91,6 +91,9 @@ class MoodleConfig extends AbstractService {
         } catch (\Exception $e) {
             throw new \Exception('Failed to parse config.php template: '.$e->getMessage());
         }
+        // Remove double blank lines from moodleConfigContents
+        $moodleConfigContents = preg_replace("/\n{3,}/", "\n\n", $moodleConfigContents);
+
         file_put_contents($assetsPath.'/config.php', $moodleConfigContents);
 
         if (!StaticVars::$ciMode) {

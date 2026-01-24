@@ -180,6 +180,28 @@ class File extends AbstractService {
         rmdir($dir);
     }
 
+    public function copyFilesFromDirToDir(string $sourceDir, string $targetDir, int $depth = 0): void {
+        $this->folderRestrictionCheck($sourceDir, 'copy');
+        $this->folderRestrictionCheck($targetDir, 'copy');
+        if ($depth === 0 && !is_dir($targetDir)) {
+            throw new Exception('Target directory does not exist: ' . $targetDir);
+        }
+
+        $files = array_diff(scandir($sourceDir), ['.', '..']);
+        foreach ($files as $file) {
+            $srcPath = $sourceDir . DIRECTORY_SEPARATOR . $file;
+            $destPath = $targetDir . DIRECTORY_SEPARATOR . $file;
+
+            if (is_dir($srcPath)) {
+                if (!is_dir($destPath)) {
+                    mkdir($destPath, 0755, true);
+                }
+                $this->copyFilesFromDirToDir($srcPath, $destPath, $depth + 1);
+            } else {
+                copy($srcPath, $destPath);
+            }
+        }
+    }
 
     public function tempDir() {
         $tempDir = sys_get_temp_dir().DIRECTORY_SEPARATOR.uniqid(sha1(microtime()), true);
