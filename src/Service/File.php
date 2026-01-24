@@ -44,6 +44,10 @@ class File extends AbstractService {
     }
 
     public function folderRestrictionCheck(string $path, string $action) {
+        if (strpos(__FILE__, 'phar://') === 0) {
+            // Skip checks when running from PHAR
+            return;
+        }
         if (!is_dir($path)) {
             throw new Exception('Invalid path: ' . $path);
         }
