@@ -174,7 +174,7 @@ class Github extends AbstractService {
             switch ($response->statusCode) {
                 case 200:
                     $data = json_decode($response->body, true);
-                    return is_array($data); // Folder exists
+                    return is_array($data) && !empty($data); // Folder exists
 
                 case 404:
                     return false; // Folder doesn't exist
