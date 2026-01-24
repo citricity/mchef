@@ -71,13 +71,7 @@ class Github extends AbstractService {
             rawurlencode($branchOrTag)
         );
 
-        $headers = [
-            'User-Agent' => 'MChef/1.0',
-            'Accept' => 'application/vnd.github.v3+json',
-            'Authorization' => 'token ' . $token
-        ];
-
-        $response = Http::get($apiUrl, $headers);
+        $response = Http::get($apiUrl, ['Authorization' => 'Bearer ' . $token]);
 
         switch ($response->statusCode) {
             case 200:
@@ -116,7 +110,7 @@ class Github extends AbstractService {
             ltrim($filePath, '/')
         );
 
-        $response = Http::get($fullUrl, ($token ? ['Authorization' => 'token ' . $token] : []));
+        $response = Http::get($fullUrl, ($token ? ['Authorization' => 'Bearer ' . $token] : []));
 
         // No headers = hard failure: DNS, SSL, network down, etc.
         if (empty($response->headers)) {
@@ -175,13 +169,7 @@ class Github extends AbstractService {
                 rawurlencode($branchOrTag)
             );
 
-            $headers = [
-                'User-Agent' => 'MChef/1.0',
-                'Accept' => 'application/vnd.github.v3+json',
-                'Authorization' => 'token ' . $token
-            ];
-
-            $response = Http::get($apiUrl, $headers);
+            $response = Http::get($apiUrl, ['Authorization' => 'Bearer ' . $token]);
 
             switch ($response->statusCode) {
                 case 200:
@@ -198,9 +186,6 @@ class Github extends AbstractService {
             $this->cli->info("GitHub API failed, falling back to raw URL: " . $e->getMessage());
             return $this->githubFolderExistsFallback($repositoryUrl, $branchOrTag, $folderPath);
         }
-        
-        return $this->githubFolderExistsFallback($repositoryUrl, $branchOrTag, $folderPath);
-        
     }
 
     private function githubFolderExistsFallback(string $repositoryUrl, string $branchOrTag, string $folderPath): bool {
@@ -227,9 +212,5 @@ class Github extends AbstractService {
             return false;
         }
         return is_array($jsonobj);
-    }
-
-        
-
-        
+    }        
 }

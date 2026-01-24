@@ -34,6 +34,8 @@ class HttpResponse
 
 class Http
 {
+    const USER_AGENT = 'MChef/1.0';
+
     /**
      * Make a GET request
      */
@@ -77,7 +79,7 @@ class Http
             $headers['accept'] = '*/*';
         }
         if (!isset($headers['user-agent'])) {
-            $headers['user-agent'] = 'MChef/1.0';
+            $headers['user-agent'] = self::USER_AGENT;
         }
         $ch = curl_init();
 
@@ -208,7 +210,7 @@ class Http
                 'header' => implode("\r\n", $headerStrings),
                 'timeout' => $options['timeout'] ?? 30,
                 'ignore_errors' => true,
-                'user_agent' => 'MChef/1.0',
+                'user_agent' => self::USER_AGENT,
             ]
         ];
 
