@@ -283,7 +283,7 @@ class Main extends AbstractService {
         }
 
         // Copy all static assets from assets folder.
-        $staticAssetsPath = __DIR__ . '/../../assets';
+        $staticAssetsPath = $this->fileService->getMchefBasePath().'/assets';
         $this->fileService->copyFilesFromDirToDir($staticAssetsPath, $assetsPath);    
 
         $this->moodleConfigService->processConfigFile($recipe);
