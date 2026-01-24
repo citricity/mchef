@@ -45,7 +45,7 @@ class Github extends AbstractService {
     }
 
     public function fetchGithubRepoSingleFileContents(string $url, string $branchOrTag, string $filePath): ?string {
-        $token = getenv('GITHUB_TOKEN') ?: null;
+        $token = getenv('MCHEF_GITHUB_PAT') ?: null;
         if ($token) {
             // Fetch via GitHub API with authentication
             try {
@@ -153,7 +153,7 @@ class Github extends AbstractService {
      */
     public function githubFolderExists(string $repositoryUrl, string $branchOrTag, string $folderPath): bool {
         // TODO - use github API
-        $token = getenv('GITHUB_TOKEN') ?: null;
+        $token = getenv('MCHEF_GITHUB_PAT') ?: null;
         if (!$token) {
             return $this->githubFolderExistsFallback($repositoryUrl, $branchOrTag, $folderPath);
         }

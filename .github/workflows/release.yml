@@ -45,4 +45,4 @@ jobs:
         with:
           files: mchef.phar
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MCHEF_GITHUB_PAT: ${{ secrets.MCHEF_GITHUB_PAT }}
