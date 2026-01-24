@@ -43,9 +43,13 @@ class File extends AbstractService {
         return $this->exec($cmd, "Failed to copy files from $src to $target: {{output}}");
     }
 
+    public function inPhar(string $file = __FILE__): bool {
+        return substr($file, 0, 7) === 'phar://';
+    }
+
     public function folderRestrictionCheck(string $path, string $action) {
-        if (strpos(__FILE__, 'phar://') === 0) {
-            // Skip checks when running from PHAR
+        if ($this->inPhar($path)) {
+            // Phar paths are safe.
             return;
         }
         if (!is_dir($path)) {
@@ -197,7 +201,7 @@ class File extends AbstractService {
 
     public function getMchefBasePath(): string {
         // If running from PHAR
-        if (strpos(__FILE__, 'phar://') === 0) {
+        if ($this->inPhar()) {
             $pharFile = Phar::running(false);
             return "phar://{$pharFile}";  // Return PHAR internal path
         }
