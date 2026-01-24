@@ -31,7 +31,6 @@ class HostsTest extends MchefTestCase {
         // Use reflection to test the method without actually changing OS
         $reflection = new \ReflectionClass($this->hostsService);
         $method = $reflection->getMethod('getHostsFilePath');
-        $method->setAccessible(true);
         
         $path = $method->invoke($this->hostsService);
         
@@ -56,7 +55,6 @@ class HostsTest extends MchefTestCase {
         
         $reflection = new \ReflectionClass($this->hostsService);
         $method = $reflection->getMethod('extractMchefHosts');
-        $method->setAccessible(true);
         
         $result = $method->invoke($this->hostsService, $lines);
         
@@ -83,7 +81,6 @@ class HostsTest extends MchefTestCase {
         
         $reflection = new \ReflectionClass($this->hostsService);
         $method = $reflection->getMethod('extractMchefHosts');
-        $method->setAccessible(true);
         
         $result = $method->invoke($this->hostsService, $lines);
         
@@ -106,7 +103,6 @@ class HostsTest extends MchefTestCase {
         
         $reflection = new \ReflectionClass($this->hostsService);
         $method = $reflection->getMethod('extractMchefHosts');
-        $method->setAccessible(true);
         
         $result = $method->invoke($this->hostsService, $lines);
         
@@ -130,7 +126,6 @@ class HostsTest extends MchefTestCase {
         
         $reflection = new \ReflectionClass($this->hostsService);
         $method = $reflection->getMethod('removeMchefSections');
-        $method->setAccessible(true);
         
         $result = $method->invoke($this->hostsService, $lines);
         
@@ -145,7 +140,6 @@ class HostsTest extends MchefTestCase {
         
         $reflection = new \ReflectionClass($this->hostsService);
         $method = $reflection->getMethod('removeMchefSections');
-        $method->setAccessible(true);
         
         $result = $method->invoke($this->hostsService, $lines);
         
@@ -162,7 +156,6 @@ class HostsTest extends MchefTestCase {
         
         $reflection = new \ReflectionClass($this->hostsService);
         $method = $reflection->getMethod('getHostsFromRecipe');
-        $method->setAccessible(true);
         
         $result = $method->invoke($this->hostsService, $recipe);
         
@@ -178,7 +171,6 @@ class HostsTest extends MchefTestCase {
         
         $reflection = new \ReflectionClass($this->hostsService);
         $method = $reflection->getMethod('getHostsFromRecipe');
-        $method->setAccessible(true);
         
         $result = $method->invoke($this->hostsService, $recipe);
         
@@ -194,7 +186,6 @@ class HostsTest extends MchefTestCase {
         
         $reflection = new \ReflectionClass($this->hostsService);
         $method = $reflection->getMethod('getHostsFromRecipe');
-        $method->setAccessible(true);
         
         $result = $method->invoke($this->hostsService, $recipe);
         
@@ -209,7 +200,6 @@ class HostsTest extends MchefTestCase {
         
         $reflection = new \ReflectionClass($this->hostsService);
         $method = $reflection->getMethod('getHostsFromRecipe');
-        $method->setAccessible(true);
         
         $result = $method->invoke($this->hostsService, $recipe);
         
@@ -228,7 +218,6 @@ class HostsTest extends MchefTestCase {
         
         $reflection = new \ReflectionClass($this->hostsService);
         $method = $reflection->getMethod('hostExistsInFile');
-        $method->setAccessible(true);
         
         $result = $method->invoke($this->hostsService, $lines, 'moodle.test');
         
@@ -246,7 +235,6 @@ class HostsTest extends MchefTestCase {
         
         $reflection = new \ReflectionClass($this->hostsService);
         $method = $reflection->getMethod('hostExistsInFile');
-        $method->setAccessible(true);
         
         $result = $method->invoke($this->hostsService, $lines, 'moodle.test');
         
@@ -278,12 +266,10 @@ class HostsTest extends MchefTestCase {
         $reflection = new \ReflectionClass($this->hostsService);
         
         $extractMethod = $reflection->getMethod('extractMchefHosts');
-        $extractMethod->setAccessible(true);
         $existingHosts = $extractMethod->invoke($this->hostsService, $lines);
         
         // Remove sections
         $removeMethod = $reflection->getMethod('removeMchefSections');
-        $removeMethod->setAccessible(true);
         $cleanLines = $removeMethod->invoke($this->hostsService, $lines);
         
         // Verify all hosts were extracted

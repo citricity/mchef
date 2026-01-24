@@ -35,6 +35,9 @@ RUN apt update && apt install --no-install-recommends -y mariadb-client
 
 {% endif %}
 
+# Install cron but don't enable by default
+RUN apt update && apt install -y cron && rm -rf /var/lib/apt/lists/*
+
 RUN \
     mkdir -p $MOODLE_DATA  && \
     chown -R $FILE_USER:$FILE_GROUP $MOODLE_DATA
@@ -93,14 +96,14 @@ RUN \
 RUN rm -rf $MOODLE_PATH/*
 RUN git clone https://github.com/moodle/moodle.git --branch $MOODLE_TAG --depth 1 $MOODLE_PATH
 
+{% if reposUseSsh %}
+RUN apt update && apt install --no-install-recommends -y git openssh-client
+RUN mkdir -p -m 0700 ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
+{% endif %}
+
 # Clone plugins using shallow clones
 {% if pluginsForDocker %}
 {% for plugin in pluginsForDocker %}
-
-{% if reposUseSsh %}
-RUN apt-get install --no-install-recommends -y git openssh-client
-RUN mkdir -p -m 0700 ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
-{% endif %}
 
 RUN{% if reposUseSsh %} --mount=type=ssh {% endif %} git clone {{ plugin.repo }} --branch {{ plugin.branch }} --depth 1 $MOODLE_PATH{{ plugin.path }}
 {% endfor %}
@@ -133,3 +136,10 @@ RUN \
 	mkdir -p $BEHAT_DATA  && \
 	chown -R $FILE_USER:$FILE_GROUP $BEHAT_DATA
 {% endif %}
+
+# Copy init script
+COPY assets/docker-init.sh /usr/local/bin/docker-init.sh
+RUN chmod +x /usr/local/bin/docker-init.sh
+
+# Modify the CMD to run our init script first
+CMD ["/bin/bash", "-c", "/usr/local/bin/docker-init.sh && apache2-foreground"]
