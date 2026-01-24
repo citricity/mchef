@@ -232,6 +232,12 @@ class Http
             $GLOBALS['http_response_header'] = $http_response_header;
         }
         $headerLines = http_get_last_response_headers() ?? [];
+
+        if (empty($headerLines)) {
+            // If no $http_response_header, it means the request completely failed
+            throw new \RuntimeException("No response headers received - network error for URL: {$url}");
+        }
+        
         foreach ($headerLines as $line) {
             if (strpos($line, ':') !== false) {
                 [$name, $value] = explode(':', $line, 2);
@@ -240,7 +246,7 @@ class Http
         }
 
         // Extract status code from first header line
-        $statusCode = 200;
+        $statusCode = 200; // Default fallback
         if (isset($headerLines[0]) && preg_match('/HTTP\/\S+\s(\d{3})/', $headerLines[0], $matches)) {
             $statusCode = (int)$matches[1];
         }
