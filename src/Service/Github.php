@@ -112,7 +112,7 @@ class Github extends AbstractService {
         $response = Http::get($apiUrl);
         
         $json = $response->body;
-        if ($json === false) {
+        if (empty($json)) {
             return false;
         }
                 

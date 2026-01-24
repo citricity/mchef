@@ -91,7 +91,6 @@ class Http
             CURLOPT_MAXREDIRS => 5,
             CURLOPT_TIMEOUT => 30,
             CURLOPT_CONNECTTIMEOUT => 10,
-            CURLOPT_USERAGENT => 'MChef/1.0',
             CURLOPT_SSL_VERIFYPEER => true,
             CURLOPT_SSL_VERIFYHOST => 2,
         ];
@@ -161,7 +160,7 @@ class Http
         $error = curl_error($ch);
 
         if ($body === false) {
-            throw new \RuntimeException("HTTP request failed: {$error}");
+            throw new \RuntimeException("HTTP request failed: url - {$url} error - {$error}");
         }
 
         // Extract status text from HTTP response line if available
@@ -223,20 +222,20 @@ class Http
 
         if ($body === false) {
             $error = error_get_last();
-            throw new \RuntimeException("HTTP request failed: " . ($error['message'] ?? 'Unknown error'));
+            throw new \RuntimeException("HTTP request failed: url - {$url} error - " . ($error['message'] ?? 'Unknown error'));
         }
 
         // Get response headers using the polyfill-compatible approach
         $responseHeaders = [];
+        $headerLines = [];
         if (isset($http_response_header)) {
             $GLOBALS['http_response_header'] = $http_response_header;
-            $headerLines = http_get_last_response_headers() ?? [];
-            
-            foreach ($headerLines as $line) {
-                if (strpos($line, ':') !== false) {
-                    [$name, $value] = explode(':', $line, 2);
-                    $responseHeaders[strtolower(trim($name))] = trim($value);
-                }
+        }
+        $headerLines = http_get_last_response_headers() ?? [];
+        foreach ($headerLines as $line) {
+            if (strpos($line, ':') !== false) {
+                [$name, $value] = explode(':', $line, 2);
+                $responseHeaders[strtolower(trim($name))] = trim($value);
             }
         }
 
