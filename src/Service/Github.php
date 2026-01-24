@@ -3,6 +3,7 @@
 namespace App\Service;
 
 use App\Exceptions\CliRuntimeException;
+use App\Helpers\Http;
 use App\Helpers\OS;
 use Exception;
 use InvalidArgumentException;
@@ -52,28 +53,15 @@ class Github extends AbstractService {
             ltrim($filePath, '/')
         );
 
-        $context = stream_context_create([
-            'http' => [
-                'method' => 'GET',
-                'header' => [
-                    "User-Agent: MChef\r\n", // GitHub requires a UA
-                ],
-                'ignore_errors' => true, // needed to read response body
-                'timeout' => 10,
-            ],
-        ]);
-
-        $content = @file_get_contents($fullUrl, false, $context);
-
-        $responseHeaders = http_get_last_response_headers();
+        $response = Http::get($fullUrl);
 
         // No headers = hard failure: DNS, SSL, network down, etc.
-        if (empty($responseHeaders)) {
+        if (empty($response->headers)) {
             throw new CliRuntimeException("No response from GitHub when requesting: {$fullUrl}");
         }
-
+        $content = $response->body;
         // Parse status line, e.g. "HTTP/1.1 200 OK"
-        $statusLine = $responseHeaders[0];
+        $statusLine = $response->headers[0];
         preg_match('{HTTP/\S+\s(\d{3})}', $statusLine, $match);
         $status = isset($match[1]) ? (int)$match[1] : 0;
 
@@ -121,18 +109,10 @@ class Github extends AbstractService {
             rawurlencode($branchOrTag)
         );
 
-        $context = stream_context_create([
-            'http' => [
-                'method' => 'GET',
-                'header' => [
-                    "User-Agent: MChef\r\n", // GitHub requires a UA
-                ],
-                'ignore_errors' => true,
-            ],
-        ]);
-
-        $json = @file_get_contents($apiUrl, false, $context);
-        if ($json === false) {
+        $response = Http::get($apiUrl);
+        
+        $json = $response->body;
+        if (empty($json)) {
             return false;
         }
                 
