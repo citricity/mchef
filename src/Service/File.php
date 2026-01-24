@@ -194,7 +194,8 @@ class File extends AbstractService {
     public function getMchefBasePath(): string {
         // If running from PHAR
         if (strpos(__FILE__, 'phar://') === 0) {
-            return dirname(Phar::running(false));
+            $pharFile = Phar::running(false);
+            return "phar://{$pharFile}";  // Return PHAR internal path
         }
         // If running from source
         return dirname(dirname(__DIR__));
