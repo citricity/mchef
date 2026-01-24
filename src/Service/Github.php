@@ -80,8 +80,8 @@ class Github extends AbstractService {
                     throw new CliRuntimeException("Invalid API response format");
                 }
                 
-                // GitHub API returns base64-encoded content
-                return base64_decode($data['content']);
+                // GitHub API returns base64-encoded content with newlines; strip them before decoding
+                return base64_decode(str_replace(["\n", "\r"], '', $data['content']));
 
             case 404:
                 return null; // File doesn't exist
