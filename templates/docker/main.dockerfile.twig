@@ -96,8 +96,6 @@ RUN \
 RUN rm -rf $MOODLE_PATH/*
 RUN git clone https://github.com/moodle/moodle.git --branch $MOODLE_TAG --depth 1 $MOODLE_PATH
 
-# Set ownership of moodle dirs.
-RUN find /var/www/html \( -type f -exec chmod 644 {} \; -o -type d -exec chmod 755 {} \; \) -exec chown $FILE_USER:$FILE_GROUP {} \;
 {% if reposUseSsh %}
 RUN apt update && apt install --no-install-recommends -y git openssh-client
 RUN mkdir -p -m 0700 ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
@@ -122,6 +120,9 @@ COPY assets/config-local.php $MOODLE_PATH/config-local.php
 RUN git clone https://github.com/andrewnicols/moodle-browser-config.git --branch main --depth 1 $MOODLE_PATH/moodle-browser-config
 COPY assets/moodle-browser-config/config.php $MOODLE_PATH/moodle-browser-config/config.php
 {% endif %}
+
+# Set ownership of moodle dirs.
+RUN find /var/www/html \( -type f -exec chmod 644 {} \; -o -type d -exec chmod 755 {} \; \) -exec chown $FILE_USER:$FILE_GROUP {} \;
 
 {% if (includeXdebug or developer) %}
 # Install xdebug.
