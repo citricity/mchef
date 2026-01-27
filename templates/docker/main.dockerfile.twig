@@ -96,6 +96,11 @@ RUN \
 RUN rm -rf $MOODLE_PATH/*
 RUN git clone https://github.com/moodle/moodle.git --branch $MOODLE_TAG --depth 1 $MOODLE_PATH
 
+# Set ownership of moodle dirs.
+RUN chown -R $FILE_USER:$FILE_GROUP /var/www/html && \
+    find /var/www/html -type f -exec chmod 644 {} \; && \
+    find /var/www/html -type d -exec chmod 755 {} \;
+
 {% if reposUseSsh %}
 RUN apt update && apt install --no-install-recommends -y git openssh-client
 RUN mkdir -p -m 0700 ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
