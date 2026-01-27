@@ -11,7 +11,7 @@ if [ "$ENABLE_MOODLE_CRON" = "true" ]; then
     fi    
     
     # Create Moodle cron job
-    echo "*/5 * * * * www-data /usr/local/bin/php $MOODLE_PATH/admin/cli/cron.php >/dev/null 2>&1" > /etc/cron.d/moodle-cron
+    echo "*/5 * * * * www-data /usr/local/bin/php $MOODLE_PATH/admin/cli/cron.php >> /proc/1/fd/1 2>> /proc/1/fd/2" > /etc/cron.d/moodle-cron
     chmod 0644 /etc/cron.d/moodle-cron
     echo "Moodle cron job configured"
 
