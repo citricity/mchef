@@ -98,8 +98,11 @@ final class Behat extends AbstractCommand {
             } else {
                 $this->cli->info('Creating and starting docker container '.$containerName);
                 $networkName = self::NETWORK_NAME;
-                $cmd =
-                    "docker run --name $containerName --network=$networkName -d -p 4444:4444 -p 7900:7900 --shm-size=\"2g\" selenium/standalone-$this->browser:latest";
+                // Use seleniarm images for ARM64 Macs
+                $seleniumImage = php_uname('m') === 'arm64' ?
+                    'seleniarm/standalone-chromium:latest' :
+                    "selenium/standalone-$this->browser:latest";
+                $cmd = "docker run --name $containerName --network=$networkName -d -p 4444:4444 -p 7900:7900 --shm-size=\"2g\" $seleniumImage";
             }
             try {
                 $this->exec($cmd);

@@ -122,7 +122,7 @@ COPY assets/moodle-browser-config/config.php $MOODLE_PATH/moodle-browser-config/
 {% endif %}
 
 # Set ownership of moodle dirs.
-RUN find /var/www/html \( -type f -exec chmod 644 {} \; -o -type d -exec chmod 755 {} \; \) -exec chown $FILE_USER:$FILE_GROUP {} \;
+RUN find $MOODLE_PATH \( -type f -exec chmod 644 {} \; -o -type d -exec chmod 755 {} \; \) -exec chown $FILE_USER:$FILE_GROUP {} \;
 
 {% if (includeXdebug or developer) %}
 # Install xdebug.
