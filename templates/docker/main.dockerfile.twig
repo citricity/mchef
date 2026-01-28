@@ -124,6 +124,9 @@ COPY assets/moodle-browser-config/config.php $MOODLE_PATH/moodle-browser-config/
 # Set ownership of moodle dirs.
 RUN find $MOODLE_PATH \( -type f -exec chmod 644 {} \; -o -type d -exec chmod 755 {} \; \) -exec chown $FILE_USER:$FILE_GROUP {} \;
 
+# Configure git to trust the moodle directory.
+RUN git config --global --add safe.directory $MOODLE_PATH
+
 {% if (includeXdebug or developer) %}
 # Install xdebug.
 COPY assets/scripts/install-xdebug.sh /tmp/

@@ -100,7 +100,7 @@ final class Behat extends AbstractCommand {
                 $networkName = self::NETWORK_NAME;
                 // Use seleniarm images for ARM64 Macs
                 $seleniumImage = php_uname('m') === 'arm64' ?
-                    'seleniarm/standalone-chromium:latest' :
+                    "seleniarm/standalone-$this->browser:latest" :
                     "selenium/standalone-$this->browser:latest";
                 $cmd = "docker run --name $containerName --network=$networkName -d -p 4444:4444 -p 7900:7900 --shm-size=\"2g\" $seleniumImage";
             }

@@ -208,8 +208,8 @@ class Main extends AbstractService {
         $stoppedContainers = 0;
         foreach ($containers as $container) {
             $name = $container->names;
-            $this->cli->notice('Stopping container: ' . $name);
             if (in_array($name, $toStop)) {
+                $this->cli->notice('Stopping container: ' . $name);
                 $this->dockerService->stopDockerContainer($name);
                 $stoppedContainers++;
             }
