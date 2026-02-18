@@ -194,7 +194,7 @@ class DisclaimerTest extends \PHPUnit\Framework\TestCase {
         $this->assertFalse($this->termsService->wereTermsJustAgreed(), 'Should not have just agreed (already existed)');
     }
     
-    public function testAgreeeLicenseFlagAutoAgrees(): void {
+    public function testAgreeLicenseFlagAutoAgrees(): void {
         // Ensure no terms agreement exists initially
         $this->removeExistingTermsFile();
         $this->assertFalse($this->termsService->hasAgreedToTerms());
