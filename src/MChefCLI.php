@@ -2,6 +2,7 @@
 
 namespace App;
 
+use App\Command\Config;
 use splitbrain\phpcli\CLI;
 use splitbrain\phpcli\Options;
 use App\Helpers\OS;
@@ -241,7 +242,10 @@ class MChefCLI extends CLI {
     protected function main(Options $options) {
         // Check terms agreement before any operation
         $termsService = \App\Service\TermsService::instance();
-        if (!$termsService->ensureTermsAgreement($options)) {
+
+        $commandsNotRequiringTerms = [Config::COMMAND_NAME]; // List of commands that can run without terms agreement (like config)
+        
+        if (!in_array($options->getCmd(), $commandsNotRequiringTerms, true) && !$termsService->ensureTermsAgreement($options)) {
             throw new \App\Exceptions\TermsNotAgreedException();
         }
 

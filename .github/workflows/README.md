@@ -9,6 +9,7 @@ This directory contains automated testing workflows for MChef, ensuring code qua
 **Purpose**: Complete testing pipeline with both unit tests and integration testing, optimized for efficiency with sequential job execution.
 
 **Triggers**:
+
 - Pull requests to `main`, `master`, or `develop` branches
 - Manual trigger via `workflow_dispatch`
 - Ignores documentation changes (`README.md`, `LICENSE`, `docs/**`)
@@ -16,12 +17,14 @@ This directory contains automated testing workflows for MChef, ensuring code qua
 **Jobs**:
 
 #### 1. Unit Tests (10 minutes)
+
 - PHPUnit test suite execution
 - Basic MChef CLI functionality validation
 - Composer validation and dependency installation
 - Quick feedback for development iterations
 
 #### 2. Integration Tests (25 minutes, runs after unit tests)
+
 - Complete MChef recipe initialization with Docker containers
 - Container lifecycle management (up, halt, cleanup)
 - Core MChef commands (`list`, `use`, `up`, `halt`, `database`, `config`)
@@ -32,6 +35,7 @@ This directory contains automated testing workflows for MChef, ensuring code qua
 **Total Runtime**: ~30-35 minutes (sequential execution with unit tests first)
 
 **Environment**:
+
 - Ubuntu latest
 - PHP 8.2 with required extensions
 - Docker with BuildKit enabled (Docker desktop or OrbStack compatible)
@@ -40,6 +44,7 @@ This directory contains automated testing workflows for MChef, ensuring code qua
 ## Optimization Features
 
 ### Performance Optimizations:
+
 - **Sequential Job Execution**: Unit tests run first (fast feedback), followed by integration tests only if unit tests pass
 - **Minimal Plugin Set**: Uses single lightweight plugin for faster testing
 - **Proper Timeout Handling**: 10 minutes for unit tests, 25 minutes for integration
@@ -48,6 +53,7 @@ This directory contains automated testing workflows for MChef, ensuring code qua
 - **Efficient Container Management**: Quick initialization with optimized recipe
 
 ### Reliability Features:
+
 - **Comprehensive Cleanup**: Automatic container and image cleanup in all scenarios
 - **Detailed Logging**: Extensive output for debugging failures
 - **Graceful Timeout Handling**: Proper process management and cleanup
@@ -56,13 +62,16 @@ This directory contains automated testing workflows for MChef, ensuring code qua
 ## Configuration Details
 
 ### Environment Variables
+
 ```yaml
-DOCKER_BUILDKIT: 1              # Enable Docker BuildKit for faster builds
-COMPOSE_DOCKER_CLI_BUILD: 1     # Use Docker CLI for compose operations
+DOCKER_BUILDKIT: 1 # Enable Docker BuildKit for faster builds
+COMPOSE_DOCKER_CLI_BUILD: 1 # Use Docker CLI for compose operations
 ```
 
 ### Test Recipe Configuration
+
 The workflow uses an optimized test recipe designed for CI efficiency:
+
 ```json
 {
   "name": "ci-test",
@@ -85,6 +94,7 @@ The workflow uses an optimized test recipe designed for CI efficiency:
 ```
 
 ### Resource Management
+
 - **Unit Test Timeout**: 10 minutes (quick feedback)
 - **Integration Test Timeout**: 25 minutes (full container lifecycle)
 - **Cleanup**: Automatic container and image cleanup in all scenarios
@@ -113,6 +123,7 @@ The workflow uses an optimized test recipe designed for CI efficiency:
    - Validate environment variables and secrets
 
 ### Accessing Logs
+
 - Both unit test and integration test logs are available in GitHub Actions
 - Container logs are automatically captured on failure in integration tests
 - Use `workflow_dispatch` for manual testing with full debug output
@@ -121,18 +132,21 @@ The workflow uses an optimized test recipe designed for CI efficiency:
 ## Maintenance
 
 ### Updating Dependencies
+
 - **PHP Version Updates**: Update PHP version in both jobs consistently
 - **Docker Images**: Test image updates in development environment first
 - **Composer Dependencies**: Automatically validated, cached for performance
 - **MChef Commands**: New commands should be added to integration test validation
 
 ### Performance Monitoring
+
 - Monitor total workflow runtime (target: under 35 minutes)
 - Track job-level performance (unit tests: <10min, integration: <25min)
 - Optimize Docker image builds and caching strategies
 - Consider splitting integration tests if runtime exceeds limits
 
 ### Adding New Tests
+
 - **Unit Tests**: Add to PHPUnit test suite (automatically included in Job 1)
 - **Integration Tests**: Extend MChef command testing in Job 2
 - **New Commands**: Add validation steps to integration job
@@ -140,20 +154,20 @@ The workflow uses an optimized test recipe designed for CI efficiency:
 
 ## Local Testing
 
-You can run the same tests locally using the provided `test-mchef.sh` script:
+You can run the same tests locally using the provided `Tests/Integration/Bash/test-mchef.sh` script:
 
 ```bash
 # Full integration test (equivalent to both jobs)
-./test-mchef.sh
+./Tests/Integration/Bash/test-mchef.sh
 
 # Unit tests only (equivalent to Job 1)
-./test-mchef.sh --unit-only
+./Tests/Integration/Bash/test-mchef.sh --unit-only
 
 # Integration tests only (equivalent to Job 2)
-./test-mchef.sh --integration-only
+./Tests/Integration/Bash/test-mchef.sh --integration-only
 
 # Custom configuration
-./test-mchef.sh --recipe custom-recipe.json --timeout 600
+./Tests/Integration/Bash/test-mchef.sh --recipe custom-recipe.json --timeout 600
 ```
 
 The local script provides the same functionality as the GitHub workflow with additional debugging options and flexible execution modes.
@@ -161,7 +175,7 @@ The local script provides the same functionality as the GitHub workflow with add
 ```json
 {
   "name": "ci-test",
-  "moodleTag": "v4.1.0", 
+  "moodleTag": "v4.1.0",
   "phpVersion": "8.0",
   "plugins": [
     {
@@ -180,6 +194,7 @@ The local script provides the same functionality as the GitHub workflow with add
 ```
 
 **Key optimizations:**
+
 - Single plugin instead of multiple
 - `cloneRepoPlugins: false` for faster setup
 - `updateHostHosts: false` (not needed in CI)
@@ -188,8 +203,9 @@ The local script provides the same functionality as the GitHub workflow with add
 ## Commands Tested
 
 ### Core MChef Commands
+
 - `mchef.php --help` - CLI help and basic functionality
-- `mchef.php <recipe.json>` - Recipe initialization 
+- `mchef.php <recipe.json>` - Recipe initialization
 - `mchef.php list` - List registered instances
 - `mchef.php use <instance>` - Select active instance
 - `mchef.php up <instance>` - Start containers
@@ -198,6 +214,7 @@ The local script provides the same functionality as the GitHub workflow with add
 - `mchef.php database --info` - Database connection info
 
 ### Container Verification
+
 - Docker container creation
 - Container status monitoring
 - Container log inspection (on failure)
@@ -207,16 +224,19 @@ The local script provides the same functionality as the GitHub workflow with add
 ## Failure Handling
 
 **Timeout Protection:**
+
 - 30-minute timeout for full tests
-- 10-minute timeout for fast tests  
+- 10-minute timeout for fast tests
 - Process termination for hung operations
 
 **Error Diagnostics:**
+
 - Container log collection on failure
 - Docker system state inspection
 - Clear error messages for debugging
 
 **Cleanup Guarantee:**
+
 - Containers removed even on failure
 - Images cleaned up to save space
 - Docker system pruning
@@ -224,12 +244,16 @@ The local script provides the same functionality as the GitHub workflow with add
 ## Usage for Development
 
 ### For Major Changes
+
 Run the full `test-mchef.yml` workflow by:
+
 1. Creating a PR to main/master/develop
 2. Or manually triggering via GitHub Actions UI
 
 ### For Quick Iteration
+
 The `fast-test.yml` workflow runs automatically on:
+
 - Changes to `src/**` (source code)
 - Changes to `mchef.php` (main CLI)
 - Changes to `composer.json/lock` (dependencies)
@@ -237,6 +261,7 @@ The `fast-test.yml` workflow runs automatically on:
 - Changes to workflow files
 
 ### Local Testing
+
 To test locally before pushing:
 
 ```bash
@@ -255,22 +280,26 @@ php ../mchef.php test.json
 ## CI Environment Considerations
 
 **Docker Resources:**
+
 - GitHub Actions runners have limited resources
 - Timeouts prevent hung builds
 - Cleanup ensures no resource leaks
 
 **Network Configuration:**
+
 - Uses localhost domains to avoid DNS issues
 - Non-standard ports to avoid conflicts
 - No host file modifications in CI
 
 **Performance Optimizations:**
+
 - Composer caching for faster dependency installation
 - Minimal plugin sets for faster builds
 - Parallel job execution where possible
 - Early termination on critical failures
 
 **Security:**
+
 - No sensitive data in recipes
 - Proper container isolation
 - Clean environment for each run

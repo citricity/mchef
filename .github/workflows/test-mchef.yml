@@ -61,6 +61,11 @@ jobs:
           php mchef.php --help
           php mchef.php --version || echo "No version flag available"
 
+      - name: Test --agree-license flag functionality
+        run: |
+          chmod +x src/Tests/Integration/Bash/test_agree_licence.sh
+          src/Tests/Integration/Bash/test_agree_licence.sh
+
   integration-test:
     name: Integration Tests
     runs-on: ubuntu-latest
