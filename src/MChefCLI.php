@@ -9,7 +9,7 @@ use App\Helpers\OS;
 use App\Helpers\SplitbrainWrapper;
 
 class MChefCLI extends CLI {
-    static $version = '1.1.5'; // This gets replaced during phar build process.
+    static $version = '1.1.21'; // This gets replaced during phar build process.
 
     /**
      * @var \App\Service\Main;

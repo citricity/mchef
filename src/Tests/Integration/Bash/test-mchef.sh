@@ -2,7 +2,7 @@
 
 # MChef Testing Script
 # This script tests MChef functionality with a sample recipe
-# Intended for usage in CI environments
+# Intended for usage in CI environments or local testing.
 
 set -e  # Exit on any error
 
@@ -98,6 +98,36 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# Check container logs for debugging failures
+check_container_logs() {
+    if [ -n "$CONTAINER_PREFIX" ]; then
+        print_error "Checking container logs for debugging..."
+        
+        MOODLE_CONTAINER="${CONTAINER_PREFIX}-moodle"
+        DB_CONTAINER="${CONTAINER_PREFIX}-db"
+        
+        echo "=== Moodle Container Logs ==="
+        if docker ps -a --filter name="$MOODLE_CONTAINER" --format "{{.Names}}" | grep -q "$MOODLE_CONTAINER"; then
+            docker logs "$MOODLE_CONTAINER" || echo "Failed to get Moodle container logs"
+        else
+            echo "No Moodle container found: $MOODLE_CONTAINER"
+        fi
+        
+        echo "=== Database Container Logs ==="
+        if docker ps -a --filter name="$DB_CONTAINER" --format "{{.Names}}" | grep -q "$DB_CONTAINER"; then
+            docker logs "$DB_CONTAINER" || echo "Failed to get database container logs"
+        else
+            echo "No Database container found: $DB_CONTAINER"
+        fi
+        
+        echo "=== All Containers ==="
+        docker ps -a
+        
+        echo "=== Docker Images ==="
+        docker images --filter reference="*$CONTAINER_PREFIX*"
+    fi
+}
+
 # Cleanup function
 cleanup() {
     if [ "$CLEANUP_ON_EXIT" = true ]; then
@@ -192,6 +222,15 @@ else
     exit 1
 fi
 
+# Test 1.5: Test --agree-license flag
+print_status "Testing --agree-license flag..."
+if php "$MCHEF_DIR/mchef.php" --agree-license > /dev/null 2>&1; then
+    print_success "--agree-license flag works"
+else
+    print_error "--agree-license flag failed"
+    exit 1
+fi
+
 # Test 2: Dependencies check
 print_status "Checking MChef dependencies..."
 cd "$MCHEF_DIR"
@@ -217,6 +256,7 @@ for i in $(seq 1 60); do
     if [ $i -eq 60 ]; then
         print_error "Containers not created within timeout"
         kill $MCHEF_PID 2>/dev/null || true
+        check_container_logs
         exit 1
     fi
     echo -n "."
@@ -237,6 +277,7 @@ if docker ps -a --filter name="$MOODLE_CONTAINER" --format "{{.Names}}" | grep -
     print_success "Moodle container exists: $MOODLE_CONTAINER"
 else
     print_error "Moodle container not found: $MOODLE_CONTAINER"
+    check_container_logs
     exit 1
 fi
 
@@ -244,7 +285,27 @@ if docker ps -a --filter name="$DB_CONTAINER" --format "{{.Names}}" | grep -q "$
     print_success "Database container exists: $DB_CONTAINER"
 else
     print_error "Database container not found: $DB_CONTAINER"
+    check_container_logs
     exit 1
+fi
+
+# Test 4.5: Plugin verification (for standard mode)
+if [ "$MINIMAL_MODE" = false ]; then
+    print_status "Verifying plugin installation..."
+    
+    # Wait a bit for container to be ready
+    sleep 10
+    
+    # Check if the moodle-filter_imageopt plugin was installed
+    if docker exec "$MOODLE_CONTAINER" test -d "/var/www/html/filter/imageopt" 2>/dev/null; then
+        print_success "Plugin moodle-filter_imageopt installed successfully"
+    elif docker exec "$MOODLE_CONTAINER" ls /var/www/html/filter/ 2>/dev/null | grep -q imageopt; then
+        print_success "Plugin imageopt found in filters directory"
+    else
+        print_warning "Plugin verification failed - this might be expected if container is still initializing"
+        print_status "Available filters:"
+        docker exec "$MOODLE_CONTAINER" ls /var/www/html/filter/ 2>/dev/null || echo "Could not list filters directory"
+    fi
 fi
 
 # Test 5: MChef commands
