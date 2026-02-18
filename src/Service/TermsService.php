@@ -54,7 +54,7 @@ class TermsService extends AbstractService {
      */
     public function ensureTermsAgreement($options = null): bool {
         // Skip terms check during testing unless explicitly testing terms functionality or forced
-        if (TestingHelpers::isPHPUnit() && !self::$forceTermsCheck && !$this->isTestingTerms() || getenv('MCHEF_SKIP_TERMS_CHECK') === '1' ) {
+        if ((TestingHelpers::isPHPUnit() && !self::$forceTermsCheck) || getenv('MCHEF_I_ACCEPT_TERMS') === '1' ) {
             return true;
         }
         
@@ -169,26 +169,6 @@ _DISCLAIMER_;
     private function getTermsFilePath(): string {
         $configurator = Configurator::instance();
         return OS::path($configurator->configDir() . '/' . self::TERMS_FILE);
-    }
-    
-    /**
-     * Check if we're specifically testing terms functionality
-     * This allows tests to opt-in to terms checking when needed
-     */
-    private function isTestingTerms(): bool {
-        // Check if a test class name contains "Terms" or "Disclaimer"
-        $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 15);
-        foreach ($backtrace as $frame) {
-            if (isset($frame['class'])) {
-                $className = $frame['class'];
-                if (strpos($className, 'Terms') !== false || 
-                    strpos($className, 'Disclaimer') !== false ||
-                    strpos($className, 'TermsIntegration') !== false) {
-                    return true;
-                }
-            }
-        }
-        return false;
     }
     
     /**

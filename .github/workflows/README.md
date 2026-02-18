@@ -158,16 +158,16 @@ You can run the same tests locally using the provided `Tests/Integration/Bash/te
 
 ```bash
 # Full integration test (equivalent to both jobs)
-./Tests/Integration/Bash/test-mchef.sh
+./src/Tests/Integration/Bash/test-mchef.sh
 
 # Unit tests only (equivalent to Job 1)
-./Tests/Integration/Bash/test-mchef.sh --unit-only
+./src/Tests/Integration/Bash/test-mchef.sh --unit-only
 
 # Integration tests only (equivalent to Job 2)
-./Tests/Integration/Bash/test-mchef.sh --integration-only
+./src/Tests/Integration/Bash/test-mchef.sh --integration-only
 
 # Custom configuration
-./Tests/Integration/Bash/test-mchef.sh --recipe custom-recipe.json --timeout 600
+./src/Tests/Integration/Bash/test-mchef.sh --recipe custom-recipe.json --timeout 600
 ```
 
 The local script provides the same functionality as the GitHub workflow with additional debugging options and flexible execution modes.

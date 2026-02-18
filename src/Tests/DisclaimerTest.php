@@ -8,7 +8,6 @@ use App\Service\TermsService;
 use App\MChefCLI;
 use App\StaticVars;
 use PHPUnit\Framework\MockObject\MockObject;
-use splitbrain\phpcli\Options;
 
 class DisclaimerTest extends \PHPUnit\Framework\TestCase {
     
