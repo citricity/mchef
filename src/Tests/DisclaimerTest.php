@@ -150,23 +150,30 @@ class DisclaimerTest extends \PHPUnit\Framework\TestCase {
         // Ensure no terms agreement exists by removing any existing file
         $this->removeExistingTermsFile();
         
-        // Test that TermsService.ensureTermsAgreement returns false when no agreement exists
-        // and no --agree-license flag is provided
+        // Create a real CLI instance to test actual integration
+        $cli = new MChefCLI(false);
+        
+        // Create a mock options that represents a command being run without --agree-license
         $mockOptions = $this->createMock(\splitbrain\phpcli\Options::class);
-        $mockOptions->method('getOpt')->with('agree-license')->willReturn(false);
+        $mockOptions->method('getCmd')->willReturn('listall'); // Simulate a command being run
+        $mockOptions->method('getOpt')->willReturnMap([
+            ['agree-license', false], // No auto-agree flag
+            ['nocache', false],
+            ['installexec', false], 
+            ['version', false],
+            ['start', false]
+        ]);
+        $mockOptions->method('getArgs')->willReturn([]);
         
-        // Should prompt and user declines
-        $this->mockCli->expects($this->once())
-            ->method('promptYesNo')
-            ->willReturn(false);
+        // Expect TermsNotAgreedException to be thrown when main() is called without terms agreement
+        $this->expectException(\App\Exceptions\TermsNotAgreedException::class);
         
-        $this->mockCli->expects($this->once())
-            ->method('error')
-            ->with('You must agree to the terms to use MChef.');
+        // Get the main method via reflection to test the protected method
+        $reflection = new \ReflectionClass($cli);
+        $mainMethod = $reflection->getMethod('main');
         
-        $result = $this->termsService->ensureTermsAgreement($mockOptions);
-        
-        $this->assertFalse($result, 'Should return false when user declines terms');
+        // This should throw TermsNotAgreedException since terms are not agreed and no flag is present
+        $mainMethod->invoke($cli, $mockOptions);
     }
     
     public function testCanRunCommandsAfterTermsAgreement(): void {
