@@ -37,8 +37,8 @@ Modified `src/MChefCLI.php` in the `main()` method to:
 protected function main(Options $options) {
     // Check terms agreement before any operation
     $termsService = \App\Service\TermsService::instance();
-    if (!$termsService->ensureTermsAgreement()) {
-        exit(1);
+    if (!$termsService->ensureTermsAgreement($options)) {
+        throw new \App\Exceptions\TermsNotAgreedException();
     }
     // ... rest of main method
 }

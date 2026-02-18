@@ -81,6 +81,7 @@ class MChefCLI extends CLI {
         $options->registerOption('version', 'Print version', 'v');
         $options->registerOption('nocache', 'Disable caching when adding plugins and pulling docker images', null, false);
         $options->registerOption('yes', 'Skip confirmation prompts', 'y', false);
+        $options->registerOption('agree-licence', 'Automatically agree to terms and conditions', null, false);
     }
 
     /**
@@ -240,8 +241,8 @@ class MChefCLI extends CLI {
     protected function main(Options $options) {
         // Check terms agreement before any operation
         $termsService = \App\Service\TermsService::instance();
-        if (!$termsService->ensureTermsAgreement()) {
-            exit(1);
+        if (!$termsService->ensureTermsAgreement($options)) {
+            throw new \App\Exceptions\TermsNotAgreedException();
         }
 
         $this->main = \App\Service\Main::instance($this);

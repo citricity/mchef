@@ -167,4 +167,28 @@ class DisclaimerTest extends \PHPUnit\Framework\TestCase {
         $this->assertTrue($this->termsService->hasAgreedToTerms());
         $this->assertTrue($this->termsService->ensureTermsAgreement());
     }
+    
+    public function testAgreeLicenceFlagAutoAgrees(): void {
+        $this->assertFalse($this->termsService->hasAgreedToTerms(), 'Terms should not be agreed initially');
+        
+        // Mock options with agree-licence flag set
+        $mockOptions = $this->createMock(\splitbrain\phpcli\Options::class);
+        $mockOptions->method('getOpt')
+            ->with('agree-licence')
+            ->willReturn(true);
+        
+        // Should not prompt when flag is present
+        $this->mockCli->expects($this->never())
+            ->method('promptYesNo');
+            
+        $this->mockCli->expects($this->once())
+            ->method('success')
+            ->with('Terms automatically agreed via --agree-licence flag.');
+        
+        $result = $this->termsService->ensureTermsAgreement($mockOptions);
+        
+        $this->assertTrue($result, 'Should auto-agree with flag');
+        $this->assertTrue($this->termsService->hasAgreedToTerms(), 'Terms file should be created');
+        $this->assertTrue($this->termsService->wereTermsJustAgreed(), 'Should track that terms were just agreed');
+    }
 }

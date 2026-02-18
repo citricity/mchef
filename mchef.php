@@ -15,6 +15,11 @@ if (!file_exists($vendor_path)) {
 require $vendor_path;
 
 use App\MChefCLI;
+use App\Exceptions\TermsNotAgreedException;
 
 $cli = new MChefCLI();
-$cli->run();
+try {
+    $cli->run();
+} catch (TermsNotAgreedException $e) {
+    exit(1);
+}

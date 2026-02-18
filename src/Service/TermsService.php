@@ -49,15 +49,24 @@ class TermsService extends AbstractService {
     
     /**
      * Check if user has agreed to terms. If not, prompt them to agree.
+     * @param \splitbrain\phpcli\Options|null $options CLI options to check for --agree-licence flag
      * @return bool True if terms are agreed, false if user declined
      */
-    public function ensureTermsAgreement(): bool {
+    public function ensureTermsAgreement($options = null): bool {
         // Skip terms check during testing unless explicitly testing terms functionality or forced
-        if (TestingHelpers::isPHPUnit() && !self::$forceTermsCheck && !$this->isTestingTerms()) {
+        if (TestingHelpers::isPHPUnit() && !self::$forceTermsCheck && !$this->isTestingTerms() || getenv('MCHEF_SKIP_TERMS_CHECK') === '1' ) {
             return true;
         }
         
         if ($this->hasAgreedToTerms()) {
+            return true;
+        }
+        
+        // Check for --agree-licence flag and auto-agree if present
+        if ($options && $options->getOpt('agree-licence')) {
+            $this->saveTermsAgreement();
+            self::$termsJustAgreed = true;
+            $this->cli->success("Terms automatically agreed via --agree-licence flag.");
             return true;
         }
         

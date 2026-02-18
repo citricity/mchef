@@ -14,6 +14,15 @@ use PHPUnit\Framework\MockObject\MockObject;
 use splitbrain\phpcli\Options;
 
 /**
+ * Test helper class to access protected methods
+ */
+class TestableMChefCLI extends MChefCLI {
+    public function callMain(Options $options): void {
+        $this->main($options);
+    }
+}
+
+/**
  * Integration test to verify that commands cannot be executed without terms agreement
  * and that they work properly after agreement
  */
@@ -66,84 +75,64 @@ class TermsIntegrationTest extends \PHPUnit\Framework\TestCase {
     public function testListAllCommandRequiresTermsAgreement(): void {
         $this->assertFalse($this->termsService->hasAgreedToTerms(), 'Terms should not be agreed initially');
         
-        // Mock the terms service flow
-        $this->mockCli->expects($this->once())
-            ->method('info')
-            ->with($this->stringContains('MChef is provided "as is"'));
-            
-        $this->mockCli->expects($this->once())
-            ->method('promptYesNo')
-            ->with(
-                $this->stringContains('Do you agree to these terms?'),
-                null,
-                null,
-                'n'
-            )
-            ->willReturn(false);
+        // Create a testable CLI instance
+        $cli = new TestableMChefCLI(false);
         
-        $this->mockCli->expects($this->once())
-            ->method('error')
-            ->with('You must agree to the terms to use MChef.');
+        // Mock options for ListAll command
+        $this->mockOptions->method('getCmd')->willReturn('listall');
+        $this->mockOptions->method('getOpt')->willReturn(false);
+        $this->mockOptions->method('getArgs')->willReturn([]);
         
-        // Attempt to execute ListAll command - should fail due to terms not agreed
-        $result = $this->termsService->ensureTermsAgreement();
-        $this->assertFalse($result, 'Terms agreement should fail when user says no');
+        // Expect TermsNotAgreedException to be thrown
+        $this->expectException(\App\Exceptions\TermsNotAgreedException::class);
         
-        // Command should not be able to execute
-        $listAllCommand = ListAll::instance();
-        $this->assertInstanceOf(ListAll::class, $listAllCommand);
+        // This should throw TermsNotAgreedException because terms are not agreed
+        $cli->callMain($this->mockOptions);
     }
     
     public function testUseCmdCommandRequiresTermsAgreement(): void {
         $this->assertFalse($this->termsService->hasAgreedToTerms(), 'Terms should not be agreed initially');
         
-        // Mock the terms service flow when user declines
-        $this->mockCli->expects($this->once())
-            ->method('info')
-            ->with($this->stringContains('MChef is provided "as is"'));
-            
-        $this->mockCli->expects($this->once())
-            ->method('promptYesNo')
-            ->with(
-                $this->stringContains('Do you agree to these terms?'),
-                null,
-                null,
-                'n'
-            )
-            ->willReturn(false);
+        // Create a testable CLI instance
+        $cli = new TestableMChefCLI(false);
         
-        $this->mockCli->expects($this->once())
-            ->method('error')
-            ->with('You must agree to the terms to use MChef.');
+        // Mock options for UseCmd command
+        $this->mockOptions->method('getCmd')->willReturn('use');
+        $this->mockOptions->method('getOpt')->willReturn(false);
+        $this->mockOptions->method('getArgs')->willReturn(['test-instance']);
         
-        // Test that UseCmd command would also require terms agreement
-        $useCmdCommand = UseCmd::instance();
-        $this->assertInstanceOf(UseCmd::class, $useCmdCommand);
+        // Expect TermsNotAgreedException to be thrown
+        $this->expectException(\App\Exceptions\TermsNotAgreedException::class);
         
-        // Verify terms agreement is required
-        $result = $this->termsService->ensureTermsAgreement();
-        $this->assertFalse($result, 'Commands should require terms agreement');
+        // This should throw TermsNotAgreedException because terms are not agreed
+        $cli->callMain($this->mockOptions);
     }
     
     public function testCommandsWorkAfterTermsAgreement(): void {
-        // Create terms agreement
+        // Create terms agreement first
         $this->termsService->createTermsAgreementForTesting();
         $this->assertTrue($this->termsService->hasAgreedToTerms(), 'Terms should be agreed');
         
-        // Should not prompt when terms are already agreed
-        $this->mockCli->expects($this->never())
-            ->method('promptYesNo');
+        // Create a testable CLI instance 
+        $cli = new TestableMChefCLI(false);
         
-        // Verify terms agreement succeeds
-        $result = $this->termsService->ensureTermsAgreement();
-        $this->assertTrue($result, 'Terms agreement should succeed when terms file exists');
+        // Mock options for ListAll command (which should now work)
+        $this->mockOptions->method('getCmd')->willReturn('listall');
+        $this->mockOptions->method('getOpt')->willReturn(false);
+        $this->mockOptions->method('getArgs')->willReturn([]);
         
-        // Commands should be accessible
-        $listAllCommand = ListAll::instance();
-        $useCmdCommand = UseCmd::instance();
+        // This should not throw an exception because terms are agreed
+        try {
+            $cli->callMain($this->mockOptions);
+        } catch (\App\Exceptions\TermsNotAgreedException $e) {
+            $this->fail('TermsNotAgreedException should not be thrown when terms are agreed');
+        } catch (\Exception $e) {
+            // Other exceptions are fine - we just want to ensure it's not TermsNotAgreedException
+            // The command may fail for other reasons (missing dependencies, etc.) but that's not what we're testing
+        }
         
-        $this->assertInstanceOf(ListAll::class, $listAllCommand);
-        $this->assertInstanceOf(UseCmd::class, $useCmdCommand);
+        // If we get here without TermsNotAgreedException, the test passes
+        $this->assertTrue(true, 'Command execution proceeded past terms check');
     }
     
     public function testTermsFileContainsCorrectData(): void {
