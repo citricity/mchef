@@ -7,8 +7,9 @@ echo "=========================================="
 
 # Remove any existing terms agreement to test the flag
 # Get the actual config directory from mchef
-CONFIG_DIR=$(php mchef.php config --get-config-dir 2>/dev/null | grep "Config directory:" | sed 's/☛ Config directory: //')
+CONFIG_DIR=$(php mchef.php config --get-config-dir 2>/dev/null | sed 's/.*Config directory: //')
 TERMS_FILE="$CONFIG_DIR/TERMSAGREED.txt"
+echo "Config directory: $CONFIG_DIR"
 echo "Removing existing terms file: $TERMS_FILE"
 rm -f "$TERMS_FILE"
 

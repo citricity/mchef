@@ -61,11 +61,6 @@ jobs:
           php mchef.php --help
           php mchef.php --version || echo "No version flag available"
 
-      - name: Test --agree-license flag functionality
-        run: |
-          chmod +x src/Tests/Integration/Bash/test_agree_licence.sh
-          src/Tests/Integration/Bash/test_agree_licence.sh
-
   integration-test:
     name: Integration Tests
     runs-on: ubuntu-latest
@@ -174,6 +169,10 @@ jobs:
 
           echo "=== Testing MChef agree license ==="
           php ${{ github.workspace }}/mchef.php --agree-license || echo "Agree license command failed (expected in CI)"
+
+          echo "=== Testing --agree-license flag integration ==="
+          chmod +x ${{ github.workspace }}/src/Tests/Integration/Bash/test_agree_licence.sh
+          ${{ github.workspace }}/src/Tests/Integration/Bash/test_agree_licence.sh
 
           echo "=== Testing MChef list command ==="
           php ${{ github.workspace }}/mchef.php list
