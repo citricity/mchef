@@ -1,6 +1,6 @@
 <?php
 
-// Deliberately no namespace here as this is included directly in Http.php for PHP < 8.3 support
+// Deliberately no namespace here as this is included directly in Http.php for PHP < 8.4 support
 
 /**
  * PHP < 8.4 implementation of content fetching using file_get_contents
