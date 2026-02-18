@@ -2,7 +2,7 @@
 
 # MChef Testing Script
 # This script tests MChef functionality with a sample recipe
-# Can be used locally or in CI environments
+# Intended for usage in CI environments
 
 set -e  # Exit on any error
 
@@ -14,7 +14,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Default values
-MCHEF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MCHEF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
 TEST_DIR="/tmp/mchef-test-$(date +%s)"
 CONTAINER_PREFIX="test-$(date +%s | tail -c 5)"
 TIMEOUT=600

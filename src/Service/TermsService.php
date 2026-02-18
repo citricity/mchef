@@ -4,9 +4,11 @@ namespace App\Service;
 
 use App\Helpers\OS;
 use App\Helpers\TestingHelpers;
-use App\MChefCLI;
 
 class TermsService extends AbstractService {
+
+    // Service dependencies.
+    private File $file;
     
     private const TERMS_FILE = 'TERMSAGREED.txt';
     private static bool $forceTermsCheck = false;
@@ -150,9 +152,11 @@ _DISCLAIMER_;
 
         $termsFilePath = $this->getTermsFilePath();
 
-        if (@file_put_contents($termsFilePath, $content) === false) {
-            $this->cli->error("Failed to write terms agreement file: {$termsFilePath}");
-            throw new \RuntimeException("Failed to write terms agreement file: {$termsFilePath}");
+        try {
+            $this->file->putContents($termsFilePath, $content);
+        } catch (\Exception $e) {
+            $this->cli->error("Failed to write terms agreement file: {$e->getMessage()}");
+            throw new \RuntimeException("Failed to write terms agreement file: {$e->getMessage()}", 0, $e);
         }
     }
     

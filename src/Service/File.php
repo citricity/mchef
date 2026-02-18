@@ -260,7 +260,7 @@ class File extends AbstractService {
         return 'C:\\'; // Fallback if something goes wrong
     }
 
-    function findFileInOrAboveDir($filename, ?string $dir = null): ?string {
+    public function findFileInOrAboveDir($filename, ?string $dir = null): ?string {
         $currentDir = $dir ?? getcwd();
         $rootDir = OS::isWindows() ? $this->getRootDirectoryWindows($currentDir) : '/';
 
@@ -280,6 +280,27 @@ class File extends AbstractService {
         }
 
         return null;
+    }
+
+    public function putContents(string $filePath, string $content): bool {
+        $lastErrorMessage = null;
+        set_error_handler(function (int $errno, string $errstr) use (&$lastErrorMessage): bool {
+            $lastErrorMessage = $errstr;
+            // Return false to allow normal error handling to continue.
+            return false;
+        });
+        $result = file_put_contents($filePath, $content);
+        restore_error_handler();
+        if ($result === false) {
+            $message = "Failed to write to file: {$filePath}";
+            if ($lastErrorMessage !== null) {
+                $message .= " ({$lastErrorMessage})";
+            }
+            $this->cli->error($message);
+            throw new \RuntimeException($message);
+        }
+
+        return $result;
     }
 
 }

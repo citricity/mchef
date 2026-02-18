@@ -355,3 +355,5 @@ This disclaimer is in addition to the terms set out in the LICENSE file.
 Please review the LICENSE for the full legal terms governing use of this software.
 
 If you do not agree with these terms, do not use this software.
+
+NOTE: For CI usage, you can use the --agree-license argument OR set the MCHEF_I_ACCEPT_TERMS environment variable to "1"
