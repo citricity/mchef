@@ -118,6 +118,7 @@ jobs:
       - name: Initialize MChef with test recipe
         run: |
           cd /tmp/mchef-test
+          php ${{ github.workspace }}/mchef.php --agree-license
           timeout 600 php ${{ github.workspace }}/mchef.php test-recipe.json &
           MCHEF_PID=$!
 
@@ -167,7 +168,7 @@ jobs:
           cd /tmp/mchef-test
 
           echo "=== Testing MChef agree licence ==="
-          php ${{ github.workspace }}/mchef.php --agree-licence || echo "Agree licence command failed (expected in CI)"
+          php ${{ github.workspace }}/mchef.php --agree-license || echo "Agree licence command failed (expected in CI)"
 
           echo "=== Testing MChef list command ==="
           php ${{ github.workspace }}/mchef.php list

@@ -183,7 +183,7 @@ class DisclaimerTest extends \PHPUnit\Framework\TestCase {
             
         $this->mockCli->expects($this->once())
             ->method('success')
-            ->with('Terms automatically agreed via --agree-licence flag.');
+            ->with('Terms automatically agreed via --agree-license flag.');
         
         $result = $this->termsService->ensureTermsAgreement($mockOptions);
         
