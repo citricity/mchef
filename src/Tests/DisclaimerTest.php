@@ -92,7 +92,12 @@ class DisclaimerTest extends \PHPUnit\Framework\TestCase {
             
         $this->mockCli->expects($this->once())
             ->method('promptYesNo')
-            ->with($this->stringContains('Do you agree to these terms?'))
+            ->with(
+                $this->stringContains('Do you agree to these terms?'),
+                null,
+                null,
+                'n'
+            )
             ->willReturn(false);
             
         $this->mockCli->expects($this->once())
@@ -142,38 +147,55 @@ class DisclaimerTest extends \PHPUnit\Framework\TestCase {
     }
     
     public function testCannotRunCommandsWithoutTermsAgreement(): void {
-        // Create a real CLI instance for this test to test actual command execution
-        $cli = new MChefCLI(false);
+        // Ensure no terms agreement exists by removing any existing file
+        $this->removeExistingTermsFile();
         
-        // Mock the options to simulate a command
-        $options = $this->createMock(Options::class);
-        $options->method('getCmd')->willReturn('listall');
-        $options->method('getOpt')->willReturn(false);
-        $options->method('getArgs')->willReturn([]);
+        // Test that TermsService.ensureTermsAgreement returns false when no agreement exists
+        // and no --agree-license flag is provided
+        $mockOptions = $this->createMock(\splitbrain\phpcli\Options::class);
+        $mockOptions->method('getOpt')->with('agree-license')->willReturn(false);
         
-        // Mock TermsService to return false for ensureTermsAgreement
-        $mockTermsService = $this->createMock(TermsService::class);
-        $mockTermsService->method('ensureTermsAgreement')->willReturn(false);
+        // Should prompt and user declines
+        $this->mockCli->expects($this->once())
+            ->method('promptYesNo')
+            ->willReturn(false);
         
-        // We expect the CLI to exit with code 1 when terms are not agreed
-        // Since we can't easily test exit() in PHPUnit, we'll test the TermsService directly
-        $this->assertFalse($mockTermsService->ensureTermsAgreement());
+        $this->mockCli->expects($this->once())
+            ->method('error')
+            ->with('You must agree to the terms to use MChef.');
+        
+        $result = $this->termsService->ensureTermsAgreement($mockOptions);
+        
+        $this->assertFalse($result, 'Should return false when user declines terms');
     }
     
     public function testCanRunCommandsAfterTermsAgreement(): void {
-        // Test that UseCmd command can be accessed after terms agreement
+        // Create terms agreement first
         $this->termsService->createTermsAgreementForTesting();
         
-        $this->assertTrue($this->termsService->hasAgreedToTerms());
-        $this->assertTrue($this->termsService->ensureTermsAgreement());
+        // Test that TermsService.ensureTermsAgreement returns true when agreement exists
+        $mockOptions = $this->createMock(\splitbrain\phpcli\Options::class);
+        
+        // Should not prompt since terms are already agreed
+        $this->mockCli->expects($this->never())
+            ->method('promptYesNo');
+        
+        $result = $this->termsService->ensureTermsAgreement($mockOptions);
+        
+        $this->assertTrue($result, 'Should return true when terms are already agreed');
+        $this->assertTrue($this->termsService->hasAgreedToTerms(), 'Terms should still be agreed');
+        $this->assertFalse($this->termsService->wereTermsJustAgreed(), 'Should not have just agreed (already existed)');
     }
     
-    public function testAgreeLicenceFlagAutoAgrees(): void {
-        $this->assertFalse($this->termsService->hasAgreedToTerms(), 'Terms should not be agreed initially');
+    public function testAgreeeLicenseFlagAutoAgrees(): void {
+        // Ensure no terms agreement exists initially
+        $this->removeExistingTermsFile();
+        $this->assertFalse($this->termsService->hasAgreedToTerms());
         
-        // Mock options with agree-licence flag set
+        // Create a simple mock that just returns true for 'agree-license'
         $mockOptions = $this->createMock(\splitbrain\phpcli\Options::class);
-        $mockOptions->method('getOpt')
+        $mockOptions->expects($this->once())
+            ->method('getOpt')
             ->with('agree-license')
             ->willReturn(true);
         

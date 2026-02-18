@@ -167,8 +167,8 @@ jobs:
         run: |
           cd /tmp/mchef-test
 
-          echo "=== Testing MChef agree licence ==="
-          php ${{ github.workspace }}/mchef.php --agree-license || echo "Agree licence command failed (expected in CI)"
+          echo "=== Testing MChef agree license ==="
+          php ${{ github.workspace }}/mchef.php --agree-license || echo "Agree license command failed (expected in CI)"
 
           echo "=== Testing MChef list command ==="
           php ${{ github.workspace }}/mchef.php list

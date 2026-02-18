@@ -2,8 +2,6 @@
 
 namespace App\Tests;
 
-use App\Command\ListAll;
-use App\Command\UseCmd;
 use App\Helpers\SplitbrainWrapper;
 use App\Helpers\TestingHelpers;
 use App\Service\TermsService;
