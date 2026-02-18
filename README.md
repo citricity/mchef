@@ -334,3 +334,26 @@ mchef.php behat --profile=chrome
 
 To view the test running, open the following URL
 http://localhost:7900/?autoconnect=1&resize=scale&password=secret
+
+## DISCLAIMER
+
+MChef is provided "as is" without warranty of any kind, express or implied.
+
+By using MChef, you acknowledge and agree that:
+
+You use this software entirely at your own risk.
+
+The author(s) shall not be held liable for any data loss, database corruption, system damage, service interruption, loss of earnings, loss of business opportunity, or any other direct or indirect damages arising from its use.
+
+It is your responsibility to ensure appropriate backups are taken before running commands that modify or rebuild environments.
+
+MChef is intended for development and testing purposes. It should not be used in production environments without proper review, safeguards, and understanding of its behaviour.
+
+No guarantee is made regarding compatibility with specific versions of Moodle, Docker, operating systems, or third-party services.
+
+This disclaimer is in addition to the terms set out in the LICENSE file.
+Please review the LICENSE for the full legal terms governing use of this software.
+
+If you do not agree with these terms, do not use this software.
+
+NOTE: For CI usage, you can use the --agree-license argument OR set the MCHEF_I_ACCEPT_TERMS environment variable to "1"

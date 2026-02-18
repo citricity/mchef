@@ -2,13 +2,14 @@
 
 namespace App;
 
+use App\Command\Config;
 use splitbrain\phpcli\CLI;
 use splitbrain\phpcli\Options;
 use App\Helpers\OS;
 use App\Helpers\SplitbrainWrapper;
 
 class MChefCLI extends CLI {
-    static $version = '1.1.5'; // This gets replaced during phar build process.
+    static $version = '1.1.21'; // This gets replaced during phar build process.
 
     /**
      * @var \App\Service\Main;
@@ -81,6 +82,7 @@ class MChefCLI extends CLI {
         $options->registerOption('version', 'Print version', 'v');
         $options->registerOption('nocache', 'Disable caching when adding plugins and pulling docker images', null, false);
         $options->registerOption('yes', 'Skip confirmation prompts', 'y', false);
+        $options->registerOption('agree-license', 'Automatically agree to terms and conditions', null, false);
     }
 
     /**
@@ -206,7 +208,7 @@ class MChefCLI extends CLI {
     }
 
     private function welcomeLine() {
-        $welcomeLine = 'Mchef: '.self::$version.' © Citricity 2024 onwards. www.citricity.com';
+        $welcomeLine = 'Mchef: '.self::$version.' © Citricity Limited 2024 onwards. www.citricity.com';
         $this->info($welcomeLine);
     }
 
@@ -238,6 +240,25 @@ class MChefCLI extends CLI {
     }
 
     protected function main(Options $options) {
+        // Check terms agreement before any operation
+        $termsService = \App\Service\TermsService::instance();
+
+        // Only allow specific operations (like `config --get-config-dir`) to bypass terms agreement
+        $skipTerms = false;
+        if ($options->getCmd() === Config::COMMAND_NAME && $options->getOpt('get-config-dir')) {
+            $skipTerms = true;
+        }
+
+        if (!$skipTerms && !$termsService->ensureTermsAgreement($options)) {
+            throw new \App\Exceptions\TermsNotAgreedException();
+        }
+
+        // If only --agree-license was provided, exit successfully after terms agreement
+        if ($options->getOpt('agree-license') && !$options->getCmd() && !$options->getArgs()) {
+            $this->success('Terms agreement completed successfully.');
+            return;
+        }
+
         $this->main = \App\Service\Main::instance($this);
 
         if ($options->getOpt('nocache')) {

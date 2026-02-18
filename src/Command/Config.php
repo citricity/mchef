@@ -100,6 +100,9 @@ final class Config extends AbstractCommand {
             $this->setRegistryPassword(trim($options->getOpt('registryPassword')));
         } else if (!empty($options->getOpt('registryToken'))) {
             $this->setRegistryToken(trim($options->getOpt('registryToken')));
+        } else if ($options->getOpt('get-config-dir')) {
+            $configDir = $this->configuratorService->configDir();
+            $this->cli->notice("Config directory: $configDir");
         } else {
             $this->cli->error('Invalid config option');
         }
@@ -158,5 +161,6 @@ final class Config extends AbstractCommand {
         $options->registerOption('registryUsername', 'Set docker image registry username', null, 'USERNAME', self::COMMAND_NAME);
         $options->registerOption('registryPassword', 'Set docker image registry password', null, 'PASSWORD', self::COMMAND_NAME);
         $options->registerOption('registryToken', 'Set docker image registry token', null, 'TOKEN', self::COMMAND_NAME);
+        $options->registerOption('get-config-dir', 'Get the path to the config directory', null, false, self::COMMAND_NAME);
     }
 }
