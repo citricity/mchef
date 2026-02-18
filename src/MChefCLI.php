@@ -243,9 +243,13 @@ class MChefCLI extends CLI {
         // Check terms agreement before any operation
         $termsService = \App\Service\TermsService::instance();
 
-        $commandsNotRequiringTerms = [Config::COMMAND_NAME]; // List of commands that can run without terms agreement (like config)
-        
-        if (!in_array($options->getCmd(), $commandsNotRequiringTerms, true) && !$termsService->ensureTermsAgreement($options)) {
+        // Only allow specific operations (like `config --get-config-dir`) to bypass terms agreement
+        $skipTerms = false;
+        if ($options->getCmd() === Config::COMMAND_NAME && $options->getOpt('get-config-dir')) {
+            $skipTerms = true;
+        }
+
+        if (!$skipTerms && !$termsService->ensureTermsAgreement($options)) {
             throw new \App\Exceptions\TermsNotAgreedException();
         }
 
