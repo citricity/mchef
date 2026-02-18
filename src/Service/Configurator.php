@@ -5,7 +5,6 @@ use App\Helpers\OS;
 use App\Helpers\TestingHelpers;
 use App\Model\GlobalConfig;
 use App\Model\RegistryInstance;
-use App\StaticVars;
 
 class Configurator extends AbstractService {
 

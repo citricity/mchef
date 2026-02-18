@@ -206,7 +206,7 @@ class MChefCLI extends CLI {
     }
 
     private function welcomeLine() {
-        $welcomeLine = 'Mchef: '.self::$version.' © Citricity 2024 onwards. www.citricity.com';
+        $welcomeLine = 'Mchef: '.self::$version.' © Citricity Limited 2024 onwards. www.citricity.com';
         $this->info($welcomeLine);
     }
 
@@ -238,6 +238,12 @@ class MChefCLI extends CLI {
     }
 
     protected function main(Options $options) {
+        // Check terms agreement before any operation
+        $termsService = \App\Service\TermsService::instance($this);
+        if (!$termsService->ensureTermsAgreement()) {
+            exit(1);
+        }
+
         $this->main = \App\Service\Main::instance($this);
 
         if ($options->getOpt('nocache')) {

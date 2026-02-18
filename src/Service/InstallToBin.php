@@ -96,7 +96,7 @@ final class InstallToBin extends AbstractService {
             file_put_contents($cmdFile, $cmdContents);
         }
 
-        $this->cli->success("Success! mchef has successfully been installed to $installFilePath");
+        $this->cli->success("Success! mchef has successfully been installed to $binDir");
         $this->cli->success("Open a brand new terminal and you should be able to call mchef directly (i.e. just type mchef --help and hit return)");
     }
 }
