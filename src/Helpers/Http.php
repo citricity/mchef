@@ -188,7 +188,20 @@ class Http
     }
 
     /**
-     * Alternative method using file_get_contents with stream context
+     * File get contents wrapper to handle PHP version differences in fetching headers after a request.
+     */
+    private static function fileGetContents(string $url, array $options): array {
+        if (!function_exists('http_get_last_response_headers')) {
+            require_once __DIR__.'/lib/PrePHP84Http.php';
+        } else {
+            require_once __DIR__.'/lib/PHP84Http.php';
+        }
+
+        return mchef_fetch_content($url, $options);
+    }
+
+    /**
+     * Alternative method using fileGetContents with stream context
      * Useful when cURL is not available
      */
     public static function getWithStream(string $url, array $headers = [], array $options = []): HttpResponse
@@ -219,24 +232,12 @@ class Http
             $contextOptions = array_merge_recursive($contextOptions, $options['context']);
         }
 
-        $context = stream_context_create($contextOptions);
-        $body = @file_get_contents($url, false, $context);
+        [$body, $headerLines] = self::fileGetContents($url, $contextOptions);
 
-        if ($body === false) {
-            $error = error_get_last();
-            throw new \RuntimeException("HTTP request failed: url - {$url} error - " . ($error['message'] ?? 'Unknown error'));
-        }
-
-        // Get response headers using the polyfill-compatible approach
         $responseHeaders = [];
-        $headerLines = [];
-        if (isset($http_response_header)) {
-            $GLOBALS['http_response_header'] = $http_response_header;
-        }
-        $headerLines = http_get_last_response_headers() ?? [];
 
         if (empty($headerLines)) {
-            // If no $http_response_header, it means the request completely failed
+            // If no headers were received, it means the request completely failed
             throw new \RuntimeException("No response headers received - network error for URL: {$url}");
         }
         
