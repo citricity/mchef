@@ -150,4 +150,12 @@ The disclaimer feature uses the same configuration directory as other MChef sett
 - Production: `~/.config/mchef/`
 - Testing: System temp directory + `/mchef_test_config`
 
-No additional configuration is required - the feature works automatically on first use.
+For interactive usage, no additional configuration is required – the feature works automatically on first use.
+
+### CLI flag: `--agree-license`
+
+For non-interactive or CI/automated environments, the MChef CLI supports a `--agree-license` flag.
+
+- **Purpose**: Allows the caller to pre-accept the license/disclaimer so that runs do not block on an interactive prompt.
+- **Usage**: Invoke the CLI with the flag (for example: `mchef --agree-license …`) in your workflow or automation.
+- **Behavior**: When this flag is present, the terms check is performed non-interactively and the license agreement is recorded as if the user had explicitly agreed at the prompt, preventing further prompts on subsequent runs.
