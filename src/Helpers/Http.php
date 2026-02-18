@@ -237,7 +237,7 @@ class Http
         $responseHeaders = [];
 
         if (empty($headerLines)) {
-            // If no $http_response_header, it means the request completely failed
+            // If no headers were received, it means the request completely failed
             throw new \RuntimeException("No response headers received - network error for URL: {$url}");
         }
         
