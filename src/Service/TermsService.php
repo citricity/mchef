@@ -138,19 +138,22 @@ _DISCLAIMER_;
      * Save terms agreement to file
      */
     private function saveTermsAgreement(): void {
-        $configurator = Configurator::instance();
+        $configurator = Configurator::instance(); // This should automatically create config directory if it doesn't exist.
         $configDir = $configurator->configDir();
-        
-        // Ensure config directory exists
-        if (!file_exists($configDir)) {
-            mkdir($configDir, 0755, true);
+        if (!is_dir($configDir)) {
+            throw new \RuntimeException("Config directory does not exist: $configDir");
         }
         
         $username = $this->getCurrentUsername();
         $timestamp = date('Y-m-d H:i:s');
         $content = "Terms agreed on: $timestamp\nUser: $username\n";
-        
-        file_put_contents($this->getTermsFilePath(), $content);
+
+        $termsFilePath = $this->getTermsFilePath();
+
+        if (@file_put_contents($termsFilePath, $content) === false) {
+            $this->cli->error("Failed to write terms agreement file: {$termsFilePath}");
+            throw new \RuntimeException("Failed to write terms agreement file: {$termsFilePath}");
+        }
     }
     
     /**
