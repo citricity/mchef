@@ -63,7 +63,7 @@ class TermsService extends AbstractService {
         }
         
         // Check for --agree-license flag and auto-agree if present
-        if ($options && $options->getOpt('agree-licence')) {
+        if ($options && $options->getOpt('agree-license')) {
             $this->saveTermsAgreement();
             self::$termsJustAgreed = true;
             $this->cli->success("Terms automatically agreed via --agree-license flag.");

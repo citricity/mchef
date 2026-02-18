@@ -174,7 +174,7 @@ class DisclaimerTest extends \PHPUnit\Framework\TestCase {
         // Mock options with agree-licence flag set
         $mockOptions = $this->createMock(\splitbrain\phpcli\Options::class);
         $mockOptions->method('getOpt')
-            ->with('agree-licence')
+            ->with('agree-license')
             ->willReturn(true);
         
         // Should not prompt when flag is present

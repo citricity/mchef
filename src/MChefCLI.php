@@ -81,7 +81,7 @@ class MChefCLI extends CLI {
         $options->registerOption('version', 'Print version', 'v');
         $options->registerOption('nocache', 'Disable caching when adding plugins and pulling docker images', null, false);
         $options->registerOption('yes', 'Skip confirmation prompts', 'y', false);
-        $options->registerOption('agree-licence', 'Automatically agree to terms and conditions', null, false);
+        $options->registerOption('agree-license', 'Automatically agree to terms and conditions', null, false);
     }
 
     /**
@@ -243,6 +243,12 @@ class MChefCLI extends CLI {
         $termsService = \App\Service\TermsService::instance();
         if (!$termsService->ensureTermsAgreement($options)) {
             throw new \App\Exceptions\TermsNotAgreedException();
+        }
+
+        // If only --agree-license was provided, exit successfully after terms agreement
+        if ($options->getOpt('agree-license') && !$options->getCmd() && !$options->getArgs()) {
+            $this->success('Terms agreement completed successfully.');
+            return;
         }
 
         $this->main = \App\Service\Main::instance($this);
