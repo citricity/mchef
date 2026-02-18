@@ -29,7 +29,7 @@ class DisclaimerTest extends \PHPUnit\Framework\TestCase {
         TermsService::forceTermsCheck(true);
         TermsService::resetJustAgreedFlag();
         
-        $this->termsService = TermsService::instance($this->mockCli);
+        $this->termsService = TermsService::instance();
         
         // Ensure clean state by removing any existing terms file
         $this->removeExistingTermsFile();
@@ -66,7 +66,12 @@ class DisclaimerTest extends \PHPUnit\Framework\TestCase {
             
         $this->mockCli->expects($this->once())
             ->method('promptYesNo')
-            ->with($this->stringContains('Do you agree to these terms?'))
+            ->with(
+                $this->stringContains('Do you agree to these terms?'),
+                null,
+                null,
+                'n'
+            )
             ->willReturn(true);
             
         $this->mockCli->expects($this->once())
@@ -107,7 +112,12 @@ class DisclaimerTest extends \PHPUnit\Framework\TestCase {
             
         $this->mockCli->expects($this->once())
             ->method('promptYesNo')
-            ->with($this->stringContains('Do you agree to these terms?'))
+            ->with(
+                $this->stringContains('Do you agree to these terms?'),
+                null,
+                null,
+                'n'
+            )
             ->willReturn(false);
             
         $this->mockCli->expects($this->once())

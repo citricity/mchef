@@ -36,7 +36,7 @@ Modified `src/MChefCLI.php` in the `main()` method to:
 ```php
 protected function main(Options $options) {
     // Check terms agreement before any operation
-    $termsService = \App\Service\TermsService::instance($this);
+    $termsService = \App\Service\TermsService::instance();
     if (!$termsService->ensureTermsAgreement()) {
         exit(1);
     }
@@ -56,7 +56,7 @@ protected function setUp(): void {
     // ... existing setup code
 
     // Create terms agreement for tests by default
-    $termsService = \App\Service\TermsService::instance($this->cli);
+    $termsService = \App\Service\TermsService::instance();
     $termsService->createTermsAgreementForTesting();
 }
 ```

@@ -23,8 +23,8 @@ class MchefTestCase extends \PHPUnit\Framework\TestCase {
             StaticVars::$cli = $mockCli;
         });
 
-        // Create terms agreement for tests by default
-        $termsService = \App\Service\TermsService::instance($this->cli);
+        // Create terms agreement for tests by default (after StaticVars::$cli is set)
+        $termsService = \App\Service\TermsService::instance();
         $termsService->createTermsAgreementForTesting();
     }
 

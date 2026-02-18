@@ -239,7 +239,7 @@ class MChefCLI extends CLI {
 
     protected function main(Options $options) {
         // Check terms agreement before any operation
-        $termsService = \App\Service\TermsService::instance($this);
+        $termsService = \App\Service\TermsService::instance();
         if (!$termsService->ensureTermsAgreement()) {
             exit(1);
         }
