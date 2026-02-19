@@ -6,11 +6,13 @@ MChef is a command-line tool designed to manage and automate various tasks relat
 
 - Recipe management
 - Plugin integration
-- Docker support
+- Docker / OrbStack support
 
 ## Requirements
 
 - PHP 8.2 or higher
+- Docker or OrbStack
+- Docker compose version >= 2.x
 - Composer (https://getcomposer.org/download/)
 
 ## Installation
