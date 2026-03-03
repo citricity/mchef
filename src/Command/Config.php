@@ -71,7 +71,7 @@ final class Config extends AbstractCommand {
 
     private function setProxy(bool $proxy) {
         if ($proxy) {
-            $this->proxyService->warnIfPort80BlockedForProxy();
+            $this->proxyService->warnIfPort80BlockedForProxy(true);
         }
         $this->configuratorService->setMainConfigField('useProxy', $proxy);
         $this->cli->notice("Local reverse proxy settings changed.\n".

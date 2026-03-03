@@ -80,9 +80,10 @@ final class ProxyService extends AbstractService {
     /**
      * When proxy mode is enabled: if port 80 is in use and not by mchef-proxy, warn that proxy mode will not work.
      * Call from: config --proxy (when enabling), mchef up, and when creating instance from recipe.
+     * @param bool $skipEnabledCheck When true, skip the proxy-mode-enabled check (e.g. when enabling proxy via config, useProxy is not yet saved).
      */
-    public function warnIfPort80BlockedForProxy(): void {
-        if (!$this->isProxyModeEnabled()) {
+    public function warnIfPort80BlockedForProxy(bool $skipEnabledCheck = false): void {
+        if (!$skipEnabledCheck && !$this->isProxyModeEnabled()) {
             return;
         }
         if ($this->isPort80UsedByMchefProxy()) {
