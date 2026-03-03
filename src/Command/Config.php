@@ -3,6 +3,7 @@
 namespace App\Command;
 
 use App\Service\Configurator;
+use App\Service\ProxyService;
 use App\Traits\ExecTrait;
 use App\Traits\SingletonTrait;
 use splitbrain\phpcli\Options;
@@ -11,6 +12,8 @@ final class Config extends AbstractCommand {
 
     use SingletonTrait;
     use ExecTrait;
+
+    private ProxyService $proxyService;
 
     const COMMAND_NAME = 'config';
 
@@ -67,6 +70,9 @@ final class Config extends AbstractCommand {
     }
 
     private function setProxy(bool $proxy) {
+        if ($proxy) {
+            $this->proxyService->warnIfPort80BlockedForProxy();
+        }
         $this->configuratorService->setMainConfigField('useProxy', $proxy);
         $this->cli->notice("Local reverse proxy settings changed.\n".
             "NOTE: You will need to stop all your mchef instances and re-up them to use the new settings");
