@@ -95,6 +95,16 @@ These defaults can be customized in two ways:
 
 If neither is specified, the default password `123456` will be used.
 
+## Proxy mode
+
+You can run all MChef instances on port 80 via a single nginx reverse proxy. Enable it with:
+
+```sh
+mchef config --proxy
+```
+
+When proxy mode is enabled, the **mchef-proxy** container binds to port 80. If port 80 is already in use by another process (e.g. another web server), MChef will warn you that proxy mode will not work until port 80 is free. No warning is shown when port 80 is used by the mchef-proxy container itself. The check runs when you enable proxy mode (`mchef config -p`), when you run `mchef up`, and when you create a new instance from a recipe. In proxy mode, the recipe `port` field is ignored; all instances are reachable on port 80 via their hostnames.
+
 ## Recipe File Structure
 
 The recipe file is a JSON configuration file that defines how your Moodle instance should be set up. Below is a comprehensive reference of all available attributes.

@@ -40,6 +40,64 @@ final class ProxyService extends AbstractService {
     }
 
     /**
+     * Check if port 80 is bound by the mchef-proxy container (docker ps shows mchef-proxy with port 80).
+     * Return true only when mchef-proxy is running and has port 80 in its PORTS.
+     */
+    public function isPort80UsedByMchefProxy(): bool {
+        $cmd = "docker ps --filter name=" . self::PROXY_CONTAINER_NAME . " --format \"{{.Names}}\t{{.Ports}}\"";
+        exec($cmd, $output, $returnVar);
+        if ($returnVar !== 0 || empty($output)) {
+            return false;
+        }
+        foreach ($output as $line) {
+            $line = trim($line);
+            if ($line === '') {
+                continue;
+            }
+            $parts = preg_split("/\s+/", $line, 2);
+            $names = $parts[0] ?? '';
+            $ports = $parts[1] ?? '';
+            if ($names === self::PROXY_CONTAINER_NAME && (str_contains($ports, ':80->') || str_contains($ports, '0.0.0.0:80'))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Check if port 80 is in use by any process (e.g. another web server).
+     * Uses a short TCP connection attempt for portability across OS.
+     */
+    public function isPort80InUse(): bool {
+        $fp = @fsockopen('127.0.0.1', self::PROXY_PORT, $errno, $errstr, 1);
+        if ($fp !== false) {
+            fclose($fp);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * When proxy mode is enabled: if port 80 is in use and not by mchef-proxy, warn that proxy mode will not work.
+     * Call from: config --proxy (when enabling), mchef up, and when creating instance from recipe.
+     * @param bool $skipEnabledCheck When true, skip the proxy-mode-enabled check (e.g. when enabling proxy via config, useProxy is not yet saved).
+     */
+    public function warnIfPort80BlockedForProxy(bool $skipEnabledCheck = false): void {
+        if (!$skipEnabledCheck && !$this->isProxyModeEnabled()) {
+            return;
+        }
+        if ($this->isPort80UsedByMchefProxy()) {
+            return;
+        }
+        if ($this->isPort80InUse()) {
+            $this->cli->warning(
+                'Port 80 is already in use by another process (not the mchef proxy). ' .
+                'Proxy mode will not work until port 80 is free. Stop the other service or disable proxy mode with: mchef config --proxy'
+            );
+        }
+    }
+
+    /**
      * Check if proxy container exists (running or stopped)
      */
     public function doesProxyContainerExist(): bool {

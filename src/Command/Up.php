@@ -70,7 +70,8 @@ class Up extends AbstractCommand {
         $this->cli->info("Starting containers for: $containerPrefix");
         $this->startContainers([$moodleContainer, $dbContainer]);
 
-        // Handle proxy mode
+        // Handle proxy mode (warn if port 80 blocked by something other than mchef-proxy)
+        $this->proxyService->warnIfPort80BlockedForProxy();
         $this->proxyService->ensureProxyRunning();
 
         $this->cli->success('Containers started successfully!');

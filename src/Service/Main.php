@@ -442,6 +442,13 @@ class Main extends AbstractService {
         $globalConfig = $this->configuratorService->getMainConfig();
         $useProxy = $globalConfig->useProxy ?? false;
 
+        if ($useProxy) {
+            $this->proxyService->warnIfPort80BlockedForProxy();
+            if (!empty($recipe->port) && $recipe->port !== 80) {
+                $this->cli->warning('Proxy mode is enabled: recipe port (' . $recipe->port . ') is ignored; instance will be reachable via port 80.');
+            }
+        }
+
         // Get proxy port for this instance if in proxy mode
         if ($useProxy) {
             $instances = $this->configuratorService->getInstanceRegistry();
