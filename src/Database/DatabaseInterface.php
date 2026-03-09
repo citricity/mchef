@@ -11,10 +11,10 @@ interface DatabaseInterface {
     public function dropAllTables(): void;
 
     /**
-     * Return a dbeaver connection string.
+     * Return a dbeaver connection command to be executed via exec.
      * @return string
      */
-    public function dbeaverConnectionString(): string;
+    public function dbeaverConnectCommand(): string;
 
     /**
      * Build a docker command (docker exec ...) to run a database query.

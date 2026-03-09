@@ -58,6 +58,15 @@ trait ExecTrait {
         return $output;
     }
 
+    protected function execDetached(string $cmd): void {
+        if ($this->verbose && !empty($this->cli)) {
+            $this->cli->info($cmd);
+        }
+        // Execute command in background to detach from PHP process
+        // This allows GUI applications to get proper focus
+        exec($cmd . ' &');
+    }
+
     protected function execPassthru(string $cmd, ?string $errorMsg = null): void {
         if ($this->verbose && !empty($this->cli)) {
             $this->cli->info($cmd);

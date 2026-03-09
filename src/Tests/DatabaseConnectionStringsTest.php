@@ -24,7 +24,7 @@ class DatabaseConnectionStringsTest extends MchefTestCase {
         $mysql = new Mysql($recipe, StaticVars::$cli);
 
         // Test DBeaver connection string
-        $dbeaverCmd = $mysql->dbeaverConnectionString();
+        $dbeaverCmd = $mysql->dbeaverConnectCommand();
         $this->assertStringContainsString('driver=mysql', $dbeaverCmd);
         $this->assertStringContainsString('port=3306', $dbeaverCmd);
         $this->assertStringContainsString('testuser', $dbeaverCmd);
@@ -78,7 +78,7 @@ class DatabaseConnectionStringsTest extends MchefTestCase {
         $postgres = new Postgres($recipe, StaticVars::$cli);
 
         // Test DBeaver connection string
-        $dbeaverCmd = $postgres->dbeaverConnectionString();
+        $dbeaverCmd = $postgres->dbeaverConnectCommand();
         $this->assertStringContainsString('driver=postgresql', $dbeaverCmd);
         $this->assertStringContainsString('port=5432', $dbeaverCmd);
         $this->assertStringContainsString('testuser', $dbeaverCmd);
@@ -135,6 +135,6 @@ class DatabaseConnectionStringsTest extends MchefTestCase {
         
         $this->expectException(\Error::class);
         $this->expectExceptionMessage('The recipe must have dbHostPort specified');
-        $mysql->dbeaverConnectionString();
+        $mysql->dbeaverConnectCommand();
     }
 }

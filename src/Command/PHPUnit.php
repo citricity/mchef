@@ -3,6 +3,7 @@
 namespace App\Command;
 
 use App\Service\Main;
+use App\Service\Moodle;
 use App\Service\Plugins;
 use App\StaticVars;
 use App\Traits\ExecTrait;
@@ -14,6 +15,9 @@ final class PHPUnit extends AbstractCommand {
 
     use SingletonTrait;
     use ExecTrait;
+
+    // Service dependencies.
+    protected Moodle $moodleService;
 
     const COMMAND_NAME = 'phpunit';
 
@@ -37,7 +41,8 @@ final class PHPUnit extends AbstractCommand {
 
         $this->cli->notice('Initializing PHPUnit');
 
-        $cmd = 'docker exec -it '.$moodleContainer.' php /var/www/html/moodle/admin/tool/phpunit/cli/init.php';
+        $publicFolder = $this->moodleService->shouldUsePublicFolder($recipe) ? 'public/' : '';
+        $cmd = 'docker exec -it '.$moodleContainer.' php /var/www/html/moodle/'.$publicFolder.'admin/tool/phpunit/cli/init.php';
         $this->execStream($cmd, 'Failed to initialize phpunit');
         $runCode = 'bash -c "cd /var/www/html/moodle && vendor/bin/phpunit';
 
