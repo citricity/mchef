@@ -38,7 +38,7 @@ class CliService extends AbstractService {
         }
         $escapedUrl = OS::escShellArg($url);
         if (OS::isWindows()) {
-            $cmd = "start $escapedUrl";
+            $cmd = 'start "" ' . $escapedUrl;
         } elseif (OS::isMac()) {
             $cmd = "open $escapedUrl";
         } elseif (OS::isLinux()) {
