@@ -19,6 +19,7 @@ class Main extends AbstractService {
     // Dependencies
     private Docker $dockerService;
     private Plugins $pluginsService;
+    private CliService $cliService;
     private Configurator $configuratorService;
     private File $fileService;
     private Git $gitService;
@@ -493,6 +494,7 @@ class Main extends AbstractService {
 
         // Print out wwwroot
         $this->cli->notice('Your mchef-Moodle is now available at: ' . $recipe->wwwRoot);
+        $this->cliService->openSite($recipe->wwwRoot);
     }
 
     public function getRecipe(?string $recipeFilePath = null): Recipe {

@@ -3,6 +3,7 @@
 namespace App\Command;
 
 use App\Exceptions\CliRuntimeException;
+use App\Service\CliService;
 use App\Service\Configurator;
 use App\Service\ProxyService;
 use App\StaticVars;
@@ -17,6 +18,7 @@ class Up extends AbstractCommand {
 
     // Service dependencies.
     private ProxyService $proxyService;
+    private CliService $cliService;
 
     // Constants.
     const COMMAND_NAME = 'up';
@@ -75,6 +77,8 @@ class Up extends AbstractCommand {
         $this->proxyService->ensureProxyRunning();
 
         $this->cli->success('Containers started successfully!');
+        $this->cli->notice('Your mchef-Moodle is now available at: ' . StaticVars::$recipe->wwwRoot);
+        $this->cliService->openSite(StaticVars::$recipe->wwwRoot);
 
         // If this is a different instance from the currently active one, prompt to set as active
         if ($isDifferentInstance) {
