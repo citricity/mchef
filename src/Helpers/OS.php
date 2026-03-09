@@ -7,6 +7,14 @@ class OS {
         return stripos(PHP_OS, 'WIN') === 0;
     }
 
+    public static function isMac(): bool {
+        return stripos(PHP_OS, 'DAR') === 0;
+    }
+
+    public static function isLinux(): bool {
+        return stripos(PHP_OS, 'LINUX') === 0;
+    }
+
     public static function escShellArg(string $arg): string {
         if (!self::isWindows()) {
             return escapeshellarg($arg);
