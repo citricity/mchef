@@ -80,7 +80,6 @@ class Up extends AbstractCommand {
         $this->cli->notice('Your mchef-Moodle is now available at: ' . StaticVars::$recipe->wwwRoot);
         $this->cliService->openSite(StaticVars::$recipe->wwwRoot);
 
-
         // If this is a different instance from the currently active one, prompt to set as active
         if ($isDifferentInstance) {
             $msg = $currentActiveInstance ? " currently active: '$currentActiveInstance'" : '';

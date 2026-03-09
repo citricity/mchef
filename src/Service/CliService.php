@@ -36,12 +36,13 @@ class CliService extends AbstractService {
             $this->cli->notice("CI mode detected - cannot open browser automatically. Please open the following URL in your browser: $url");
             return;
         }
+        $escapedUrl = OS::escShellArg($url);
         if (OS::isWindows()) {
-            $cmd = "start $url";
+            $cmd = "start $escapedUrl";
         } elseif (OS::isMac()) {
-            $cmd = "open $url";
+            $cmd = "open $escapedUrl";
         } elseif (OS::isLinux()) {
-            $cmd = "xdg-open $url";
+            $cmd = "xdg-open $escapedUrl";
         } else {
             $this->cli->warning("Cannot determine OS to open the site automatically. Please open the following URL in your browser: $url");
             return;
