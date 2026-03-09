@@ -6,6 +6,7 @@ use App\Database\DatabaseInterface;
 use App\Database\Mysql;
 use App\Database\Postgres;
 use App\Database\Mariadb;
+use App\Helpers\OS;
 use App\Model\Recipe;
 use App\Model\RegistryInstance;
 use App\StaticVars;
@@ -50,7 +51,7 @@ class Database extends AbstractCommand {
 
     private function openDatabaseClient(?string $client): void {
         $cmd = match ($client) {
-            'dbeaver' => $this->database->dbeaverConnectionString(),
+            'dbeaver' => $this->database->dbeaverConnectCommand(),
             'pgadmin' => $this->getPgAdminCommand(),
             'mysql workbench' => $this->getMysqlWorkbenchCommand(),
             'psql (cli)', 'psql' => $this->getPsqlCommand(),
@@ -59,7 +60,17 @@ class Database extends AbstractCommand {
         };
 
         if (is_string($cmd)) {
-            $this->exec($cmd);
+            // GUI applications need detached execution for proper focus
+            if (in_array($client, ['dbeaver', 'pgadmin', 'mysql workbench'])) {
+                $this->execDetached($cmd);
+
+                if (OS::isMac() && $client === 'dbeaver') {
+                    $applescript = 'tell application "DBeaver" to activate';
+                    $this->execDetached('sleep 1 && osascript -e ' . escapeshellarg($applescript));
+                }
+            } else {
+                $this->exec($cmd);
+            }
         } else if (is_array($cmd)) {
             $this->execInteractive($cmd[0], $cmd[1]);
         }

@@ -4,7 +4,7 @@ namespace App\Command;
 
 use App\Exceptions\ExecFailed;
 use App\Service\Docker;
-use App\Service\Main;
+use App\Service\Moodle;
 use App\Service\Plugins;
 use App\StaticVars;
 use App\Traits\ExecTrait;
@@ -20,6 +20,7 @@ final class Behat extends AbstractCommand {
     // Service dependencies.
     protected Plugins $pluginsService;
     protected Docker $dockerService;
+    protected Moodle $moodleService;
 
     // Constants.
     const COMMAND_NAME = 'behat';
@@ -113,7 +114,8 @@ final class Behat extends AbstractCommand {
 
         $this->cli->notice('Initializing behat');
         $moodleContainer = $this->mainService->getDockerMoodleContainerName($instanceName);
-        $cmd = 'docker exec -it '.$moodleContainer.' php /var/www/html/moodle/admin/tool/behat/cli/init.php --axe';
+        $publicFolder = $this->moodleService->shouldUsePublicFolder($recipe) ? 'public/' : '';
+        $cmd = 'docker exec -it '.$moodleContainer.' php /var/www/html/moodle/'.$publicFolder.'admin/tool/behat/cli/init.php --axe';
         $this->execStream($cmd, 'Failed to initialize behat');
         // !NOTE AWFUL, AWFUL BUG FIX!
         // Have to do it twice because execStream only returns last line which can end up being performance information as opposed

@@ -8,6 +8,7 @@ use App\Service\Docker;
 use App\Service\Main;
 
 class Postgres extends AbstractDatabase implements DatabaseInterface {
+
     public function dropAllTables(): void {
         $mainService   = Main::instance($this->cli);
         $dbContainer   = $mainService->getDockerDatabaseContainerName();
@@ -57,22 +58,14 @@ class Postgres extends AbstractDatabase implements DatabaseInterface {
         }
     }
 
-    public function dbeaverConnectionString(): string {
-        if (empty($this->recipe->dbHostPort)) {
-            throw new \Error('The recipe must have dbHostPort specified in order to generate a connection string');
-        }
-        $dbeavercmd = OS::isWindows() ? 'dbeaver.exe' : 'open -na "DBeaver" --args';
-        $conString = sprintf(
+    protected function dbeaverConnectBaseCommand(): string {
+        return sprintf(
             'driver=postgresql|host=localhost|port=%s|database=%s|user=%s|password=%s',
             $this->recipe->dbHostPort,
             $this->getDbName(),
             $this->recipe->dbUser,
             $this->recipe->dbPassword
         );
-
-        // Escape the *whole thing once*
-        $cmd = $dbeavercmd . ' -con ' . escapeshellarg($conString);
-        return $cmd;
     }
 
     /**
