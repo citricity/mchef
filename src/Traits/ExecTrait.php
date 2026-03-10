@@ -3,6 +3,7 @@
 namespace App\Traits;
 
 use App\Exceptions\ExecFailed;
+use App\Helpers\OS;
 
 trait ExecTrait {
     protected bool $verbose = false;
@@ -64,7 +65,19 @@ trait ExecTrait {
         }
         // Execute command in background to detach from PHP process
         // This allows GUI applications to get proper focus
-        exec($cmd . ' &');
+
+        // This is made OS-aware to work correctly on both Unix-like systems and Windows.
+        if (OS::isWindows()) {
+            // On Windows, use "start" to launch a detached process.
+            // The empty title ("") is required to avoid treating the first argument as the window title.
+            $detachedCmd = 'start "" ' . $cmd;
+        } else {
+            // On Unix-like systems.
+            $detachedCmd = "($cmd) &";
+        }
+        $output = [];
+        $returnVar = 0;
+        exec($detachedCmd, $output, $returnVar);
     }
 
     protected function execPassthru(string $cmd, ?string $errorMsg = null): void {
