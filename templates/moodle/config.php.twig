@@ -80,6 +80,10 @@ $CFG->behat_profiles['host-chrome'] = [
 $CFG->lang = '{{config.lang}}';
 {% endif %}
 
+{% if (config.theme != UNSET) %}
+$CFG->theme = '{{config.theme}}';
+{% endif %}
+
 {% if (config.timezone != UNSET) %}
 date_default_timezone_set('{{config.timezone}}');
 {% endif %}

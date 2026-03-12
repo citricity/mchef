@@ -35,7 +35,8 @@ class PHPVersions extends AbstractService {
             '8.1',
             '8.2',
             '8.3',
-            '8.4'
+            '8.4',
+            '8.5'
         ];
 
         try {
@@ -47,6 +48,11 @@ class PHPVersions extends AbstractService {
         // Parse the JSON response into a PHP array
         $branches = json_decode($response, true);
         if (empty($branches)) {
+            return $hardCodedVersions;
+        }
+
+        // Handle api rate limit issue.
+        if (!empty($branches['message']) && strpos($branches['message'], 'API rate limit exceeded') !== false) {
             return $hardCodedVersions;
         }
 
