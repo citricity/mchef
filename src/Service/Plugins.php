@@ -28,7 +28,7 @@ class Plugins extends AbstractService {
 
     private function getBaseMoodlePluginPath(string $pluginName): string {
         $path = '';
-        $parts = explode('_', $pluginName);
+        $parts = explode('_', $pluginName, 2);
         $type = array_shift($parts);
 
         switch ($type) {
