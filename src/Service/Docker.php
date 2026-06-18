@@ -2,6 +2,7 @@
 
 namespace App\Service;
 
+use App\Exceptions\ExecFailed;
 use App\Model\DockerContainer;
 use App\Model\DockerData;
 use App\Model\DockerNetwork;
@@ -10,6 +11,8 @@ use splitbrain\phpcli\Exception;
 
 class Docker extends AbstractService {
     use ExecTrait;
+
+    private Configurator $configurator;
 
     final public static function instance(): Docker {
         return self::setup_singleton();
@@ -351,8 +354,33 @@ class Docker extends AbstractService {
         
         // Build using docker compose but don't start containers
         $dockerBuildKit = $usesSsh ? 'DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 ' : '';
-        $cmd = "{$dockerBuildKit}docker compose --project-directory {$projectDirEscaped} -f {$composeFileEscaped} build";
-        $this->exec($cmd, "Failed to build image with docker compose");
+        $mainConfig = $this->configurator->getMainConfig();
+        $composeCmd = $mainConfig->dockerComposeCommand ?: 'docker compose';
+        $alternateComposeCmd = $composeCmd === 'docker-compose' ? 'docker compose' : 'docker-compose';
+        $baseArgs = "--project-directory {$projectDirEscaped} -f {$composeFileEscaped} build";
+        $cmd = "{$dockerBuildKit}{$composeCmd} {$baseArgs}";
+        $errorMsg = "Failed to build image with docker compose";
+
+        try {
+            $this->exec($cmd, $errorMsg);
+        } catch (ExecFailed $firstFailure) {
+            $fallbackCmd = "{$dockerBuildKit}{$alternateComposeCmd} {$baseArgs}";
+            try {
+                $this->cli->warning("Compose command failed, retrying with: {$alternateComposeCmd}");
+                $this->exec($fallbackCmd, $errorMsg);
+                if ($mainConfig->dockerComposeCommand !== $alternateComposeCmd) {
+                    $this->configurator->setMainConfigField('dockerComposeCommand', $alternateComposeCmd);
+                    $this->cli->notice("Updated compose command preference to: {$alternateComposeCmd}");
+                }
+            } catch (ExecFailed $fallbackFailure) {
+                throw new ExecFailed(
+                    $errorMsg . " Tried compose commands: {$composeCmd} and {$alternateComposeCmd}",
+                    0,
+                    $firstFailure->getCmd(),
+                    $fallbackFailure
+                );
+            }
+        }
         
         // Get the built image name from compose and tag it with our custom name
         // This is a bit tricky - we need to inspect what compose built and rename it

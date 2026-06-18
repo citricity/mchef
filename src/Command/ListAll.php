@@ -28,6 +28,10 @@ final class ListAll extends AbstractCommand {
 
     public function execute(Options $options): void {
         $instances = $this->configuratorService->getInstanceRegistry();
+        if (empty($instances)) {
+            $this->cli->info("No mchef instances have been registered.");
+            return;
+        }
         $config = $this->configuratorService->getMainConfig();
         $selectedInstance = $config->instance ?? null;
         foreach ($instances as $instance) {
