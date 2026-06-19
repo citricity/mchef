@@ -461,7 +461,7 @@ class Docker extends AbstractService {
         self::$dockerComposeCommandResolved = true;
         if (!empty($unsupportedVersionCandidates)) {
             $versions = implode(', ', $unsupportedVersionCandidates);
-            $this->cli->error("docker compose version >= 2.x required (checked: $versions)");
+            $this->cli->error("docker compose version >= 2.x required (checked commands: $versions)");
             $this->lastComposeResolutionError = self::COMPOSE_VERSION_UNSUPPORTED;
             return null;
         }
