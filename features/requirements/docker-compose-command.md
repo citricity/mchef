@@ -6,7 +6,7 @@
 
 Moodle Chef must support environments where Docker Compose is available as either `docker compose` or `docker-compose`.
 
-The system should detect the working command, persist that choice in main config, and use the configured command for all compose operations. If runtime execution fails, it must retry once with the alternate command and, if successful, rewrite config to the working command.
+The system should detect the working command, persist that choice in main config, and use the configured command for all compose operations.
 
 ## Requirements
 
