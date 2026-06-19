@@ -170,7 +170,8 @@ The `config` object allows you to customize Moodle's configuration settings:
   "admin": "admin",
   "lang": "en",
   "timezone": "UTC",
-  "defaultblocks": ""
+  "defaultblocks": "",
+  "theme": "mycustomtheme"
 }
 ```
 
@@ -182,6 +183,8 @@ The `config` object allows you to customize Moodle's configuration settings:
 | `lang`                 | string | `null`    | Default language code (e.g., `"en"`, `"es"`, `"fr"`). If not set, uses global config or defaults to `"en"`. |
 | `timezone`             | string | `null`    | Default timezone (e.g., `"UTC"`, `"America/New_York"`).                                                     |
 | `defaultblocks`        | string | `null`    | Default blocks configuration.                                                                               |
+| `theme`                | string | `null`    | Default Moodle theme (e.g., `"boost"`, `"classic"`, or a custom installed theme).                      |
+
 
 ### Sample Data
 
