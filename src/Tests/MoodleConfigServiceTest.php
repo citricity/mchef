@@ -165,4 +165,43 @@ class MoodleConfigServiceTest extends MchefTestCase
             rmdir($base);
         }
     }
+
+    public function testProcessConfigFileRendersThemeSettingWhenConfigured(): void
+    {
+        $moodleConfig = MoodleConfig::instance();
+
+        $base = sys_get_temp_dir().'/mchef_theme_'.uniqid();
+        $assetsPath = $base.'/docker/assets';
+        mkdir($assetsPath, 0755, true);
+
+        // Use a real Main instance so Twig namespaces are available.
+        $realMain = Main::instance();
+        $this->setRestrictedProperty($realMain, 'chefPath', $base);
+
+        $this->applyMockedServices(
+            [
+                'mainService' => $realMain,
+            ],
+            $moodleConfig
+        );
+
+        $recipe = new Recipe('v4.5.0', '8.0');
+        $recipe->config->theme = 'boost';
+
+        $moodleConfig->processConfigFile($recipe);
+
+        $renderedConfig = file_get_contents($realMain->getAssetsPath().'/config.php');
+        $this->assertStringContainsString("\$CFG->theme = 'boost';", $renderedConfig);
+
+        // Cleanup
+        $assetsPath = $realMain->getAssetsPath();
+        $this->removeDirectoryRecursive($assetsPath);
+        $dockerDir = dirname($assetsPath);
+        if (is_dir($dockerDir)) {
+            rmdir($dockerDir);
+        }
+        if (is_dir($base)) {
+            rmdir($base);
+        }
+    }
 }

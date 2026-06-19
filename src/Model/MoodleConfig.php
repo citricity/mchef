@@ -10,6 +10,7 @@ class MoodleConfig extends AbstractModel {
         public string $lang = self::UNSET,
         public string $timezone = self::UNSET,
         public string $defaultblocks = self::UNSET,
+        public string $theme = self::UNSET,
         public bool $sslproxy = false
     ) { }
 }

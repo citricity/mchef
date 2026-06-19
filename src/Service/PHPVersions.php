@@ -9,9 +9,58 @@ class PHPVersions extends AbstractService {
     }
 
     public function listVersions(): array {
+        $hardCodedVersions = $this->getHardCodedVersions();
+
+        $response = $this->fetchBranchesResponse();
+        if (!is_string($response) || $response === '') {
+            return $hardCodedVersions;
+        }
+
+        // Parse the JSON response into a PHP array
+        $branches = json_decode($response, true);
+        if (empty($branches) || !is_array($branches)) {
+            return $hardCodedVersions;
+        }
+
+        // Handle api rate limit issue.
+        if (!empty($branches['message']) && strpos($branches['message'], 'API rate limit exceeded') !== false) {
+            return $hardCodedVersions;
+        }
+
+        // Loop through the branches and extract the PHP version from the branch name
+        // GitHub errors are often JSON objects with "message" and not a list of branch objects.
+        // Ensure the payload is a list before iterating to avoid TypeError on malformed responses.
+        if (!array_is_list($branches)) {
+            return $hardCodedVersions;
+        }
+
+        try {
+            $phpVersions = [];
+            foreach ($branches as $branch) {
+                if (!is_array($branch) || empty($branch['name']) || !is_string($branch['name'])) {
+                    continue;
+                }
+
+                $branchName = $branch['name'];
+                preg_match('/(\d+\.\d+)(?:-)/', $branchName, $matches);
+                if (!empty($matches[1])) {
+                    $phpVersions[] = $matches[1];
+                }
+            }
+        } catch (\Throwable $e) {
+            return $hardCodedVersions;
+        }
+
+        return array_unique($phpVersions);
+    }
+
+    /**
+     * Fetch branches JSON from GitHub API.
+     */
+    protected function fetchBranchesResponse(): ?string {
         $repoUrl = "https://api.github.com/repos/moodlehq/moodle-php-apache/branches";
 
-        // Set up a CURL session to retrieve the branch information from GitHub
+        // Set up a CURL session to retrieve branch information from GitHub.
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $repoUrl);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -24,7 +73,23 @@ class PHPVersions extends AbstractService {
             'User-Agent: PHP'
         ));
 
-        $hardCodedVersions = [
+        try {
+            $response = curl_exec($ch);
+        } catch (\Throwable $e) {
+            return null;
+        } finally {
+            unset($ch); // Close curl handle.
+        }
+
+        if (!is_string($response) || $response === '') {
+            return null;
+        }
+
+        return $response;
+    }
+
+    protected function getHardCodedVersions(): array {
+        return [
             '5.6',
             '7.0',
             '7.1',
@@ -35,36 +100,8 @@ class PHPVersions extends AbstractService {
             '8.1',
             '8.2',
             '8.3',
-            '8.4'
+            '8.4',
+            '8.5'
         ];
-
-        try {
-            $response = curl_exec($ch);
-        } catch (\Exception $e) {
-            return $hardCodedVersions;
-        }
-
-        // Parse the JSON response into a PHP array
-        $branches = json_decode($response, true);
-        if (empty($branches)) {
-            return $hardCodedVersions;
-        }
-
-        // Loop through the branches and extract the PHP version from the branch name
-        try {
-            $phpVersions = [];
-            foreach ($branches as $branch) {
-                $branchName = $branch['name'];
-                preg_match('/(\d+\.\d+)(?:-)/', $branchName, $matches);
-                if (!empty($matches[1])) {
-                    $phpVersion = $matches[1];
-                    $phpVersions[] = $phpVersion;
-                }
-            }
-        } catch (\Exception $e) {
-            return $hardCodedVersions;
-        }
-
-        return array_unique($phpVersions);
     }
 }
