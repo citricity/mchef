@@ -84,18 +84,35 @@ trait ExecTrait {
         if ($this->verbose && !empty($this->cli)) {
             $this->cli->info($cmd);
         }
-        $outputBuffering = ini_get('output_buffering');
-        ini_set('output_buffering', 0);
-        flush();
-        $output = passthru($cmd, $returnVar);
-        if ($returnVar != 0) {
-            // Restore output buffering.
-            ini_set('output_buffering', $outputBuffering);
-            throw new ExecFailed(($errorMsg ? $this->processErrorMsg($errorMsg, $output) : "Exec failed"), 0, $cmd);
-        }
 
-        // Restore output buffering.
-        ini_set('output_buffering', $outputBuffering);
+        // Do not alter stderr behavior if command already contains stderr redirection.
+        // Covers common forms like: 2>&1, 2>file, 2>>file, 2>&2.
+        $hasStderrRedirect = preg_match('/(?:^|\s|[;|&()])2\s*(?:>>?|>&)\s*(?:\S|&\d+)/', $cmd) === 1;
+        $runCmd = $hasStderrRedirect ? $cmd : $cmd . ' 2>&1';
+
+        // Keep only the tail of output to avoid unbounded memory growth.
+        $maxCaptureBytes = 131072; // 128 KB
+        $cliOutput = '';
+
+        ob_start(function (string $buffer) use (&$cliOutput, $maxCaptureBytes): string {
+            $cliOutput .= $buffer;
+            $len = strlen($cliOutput);
+            if ($len > $maxCaptureBytes) {
+                $cliOutput = substr($cliOutput, $len - $maxCaptureBytes);
+            }
+            return $buffer; // Preserve normal passthru behavior (print live)
+        }, 1);
+
+        passthru($runCmd, $returnVar);
+        ob_end_flush();
+
+        if ($returnVar !== 0) {
+            $message = $errorMsg
+                ? $this->processErrorMsg($errorMsg, $cliOutput)
+                : "Exec failed";
+
+            throw new ExecFailed($message, 0, $cmd, null, $cliOutput);
+        }
     }
 
     private function resolveBinary(string $binary): string {

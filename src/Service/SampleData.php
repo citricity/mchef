@@ -30,7 +30,7 @@ class SampleData extends AbstractService {
         $sampleData = $recipe->sampleData;
         $this->cli->notice('Generating sample data for Moodle using tool_generator...');
 
-        $moodlePath = $this->moodleService->getDockerMoodlePath($recipe);
+        $moodlePath = $this->moodleService->getDockerMoodlePublicPath($recipe);
 
         // Normalize and validate configuration
         $this->normalizeConfiguration($sampleData);
@@ -99,7 +99,8 @@ class SampleData extends AbstractService {
             $moodleContainer,
             $moodlePath,
             'admin/tool/generator/cli/maketestsite.php',
-            $args
+            $args,
+            true
         );
     }
 
@@ -139,7 +140,8 @@ class SampleData extends AbstractService {
                 $moodleContainer,
                 $moodlePath,
                 'admin/tool/generator/cli/maketestcourse.php',
-                $args
+                $args,
+                true
             );
         }
     }
@@ -148,10 +150,11 @@ class SampleData extends AbstractService {
      * Execute a Moodle CLI script directly
      * Uses Moodle's built-in tool_generator scripts
      */
-    private function executeMoodleCli(string $moodleContainer, string $moodlePath, string $scriptPath, array $args = []): void {
+    private function executeMoodleCli(string $moodleContainer, string $moodlePath, string $scriptPath, array $args = [], bool $debug = false): void {
         $argsStr = !empty($args) ? ' ' . implode(' ', array_map('escapeshellarg', $args)) : '';
+        $debugEnv = $debug ? '-e DEBUG=1 ' : '';
         $cmd = sprintf(
-            'docker exec %s php %s/%s%s',
+            'docker exec '.$debugEnv.'%s php %s/%s%s',
             escapeshellarg($moodleContainer),
             escapeshellarg($moodlePath),
             escapeshellarg($scriptPath),

@@ -2,6 +2,7 @@
 
 namespace App\Service;
 
+use App\Exceptions\ExecFailed;
 use App\Helpers\OS;
 use App\Model\DockerData;
 use App\Model\PluginsInfo;
@@ -174,7 +175,26 @@ class Main extends AbstractService {
         $baseArgs = "--project-directory \"{$this->getChefPath()}/docker\" -f \"$ymlPath\" up -d --force-recreate --build";
         $cmd = "{$dockerBuildKit}{$composeCmd} {$baseArgs}";
         $errorMsg = "Error starting docker containers - try pruning with 'docker builder prune' OR 'docker system prune' (note 'docker system prune' will destroy all non running container images)";
-        $this->execPassthru($cmd, $errorMsg);
+        
+        try {
+            $this->execPassthru($cmd, $errorMsg);
+        } catch (ExecFailed $ex) {
+            $message = $ex->getDebugInfo();
+            if (str_contains($message, 'requires buildx plugin to be installed')) {
+                $installInstructions = 'Uknown OS - please install buildx plugin for your OS and try again.';
+                if (OS::isMac()) {
+                    $installInstructions = 'Recommended installation is via homebrew - brew install docker-buildx';
+                } else if (OS::isLinux()) {
+                    $installInstructions = 'Please install using your package manager - e.g. for Ubuntu - sudo apt install docker-buildx-plugin';
+                } else if (OS::isWindows()) {
+                    $installInstructions = 'Please install using your package manager - e.g. for Windows - choco install docker-buildx-plugin';
+                }
+                $this->cli->error("If your recipe uses ssh repo urls, the buildx plugin needs to be installed. Please install it and try again. $installInstructions");
+                exit(1);
+            }
+            $this->cli->error("Docker compose command failed: $message");
+            exit(1);
+        }
 
         // @Todo - Add code here to check docker ps for expected running containers.
         // For example, if one of the Apache virtual hosts has an error in it, it will bomb out.

@@ -103,7 +103,11 @@ class MoodleInstall extends AbstractService {
         // Try to install
         try {
             $this->execPassthru($cmdinstall);
-        } catch (\Exception $e) {
+        } catch (\App\Exceptions\ExecFailed $e) {
+            if (str_contains($e->getDebugInfo(), 'is required and you are running')) {
+                $this->cli->error('Moodle installation failed due to postgres version mismatch. Alter your recipe (dbVersion field) to use the correct version of postgres for this moodle version');
+                exit(1);
+            }
             // Installation failed, ask if DB should be dropped?
             $this->cli->error($e->getMessage());
             $overwrite = readline("Do you want to delete the db and install fresh? (yes/no): ");
