@@ -12,8 +12,8 @@ final class Dependencies extends AbstractService {
     // Service Dependencies
     private Docker $dockerService;
 
-    public static function instance(): Dependencies {
-        return self::setup_singleton();
+    public static function instance(bool $reset = false): Dependencies {
+        return self::setup_singleton($reset);
     }
 
     private function dockerIsInstalled(): bool {

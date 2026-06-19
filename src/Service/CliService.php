@@ -9,8 +9,8 @@ use App\StaticVars;
  */
 class CliService extends AbstractService {
 
-    final public static function instance(): CliService {
-        return self::setup_singleton();
+    final public static function instance(bool $reset = false): CliService {
+        return self::setup_singleton($reset);
     }
 
     public function locateCommandClass(string $command): ?string {

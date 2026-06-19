@@ -10,8 +10,8 @@ use InvalidArgumentException;
 
 class Github extends AbstractService {
 
-    final public static function instance(): Github {
-        return self::setup_singleton();
+    final public static function instance(bool $reset = false): Github {
+        return self::setup_singleton($reset);
     }
 
     /**

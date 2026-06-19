@@ -22,8 +22,8 @@ class Docker extends AbstractService {
     private Configurator $configurator;
     private string $lastComposeResolutionError = self::COMPOSE_OK;
 
-    final public static function instance(): Docker {
-        return self::setup_singleton();
+    final public static function instance(bool $reset = false): Docker {
+        return self::setup_singleton($reset);
     }
 
     private function getTableHeadingPositions(string $table, array $headings): array {

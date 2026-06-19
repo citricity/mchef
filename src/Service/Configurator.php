@@ -8,8 +8,8 @@ use App\Model\RegistryInstance;
 
 class Configurator extends AbstractService {
 
-    final public static function instance(): Configurator {
-        return self::setup_singleton()->initializeConfig();
+    final public static function instance(bool $reset = false): Configurator {
+        return self::setup_singleton($reset)->initializeConfig();
     }
 
     protected function initializeConfig(): Configurator {

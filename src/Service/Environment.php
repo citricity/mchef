@@ -6,8 +6,8 @@ class Environment extends AbstractService {
 
     protected Configurator $configuratorService;
 
-    final public static function instance(): Environment {
-        return self::setup_singleton();
+    final public static function instance(bool $reset = false): Environment {
+        return self::setup_singleton($reset);
     }
 
     /**
