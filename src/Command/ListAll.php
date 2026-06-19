@@ -22,8 +22,8 @@ final class ListAll extends AbstractCommand {
     // Constants
     const COMMAND_NAME = 'list';
 
-    public static function instance(): ListAll {
-        return self::setup_singleton();
+    public static function instance(bool $reset = false): ListAll {
+        return self::setup_singleton($reset);
     }
 
     public function execute(Options $options): void {

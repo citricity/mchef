@@ -8,12 +8,11 @@ use App\Model\GlobalConfig;
 use App\Service\Configurator;
 use App\Service\Docker;
 
-final class DockerComposeFallbackTest extends MchefTestCase {
+final class DockerComposeBuildCommandTest extends MchefTestCase {
 
-    public function testBuildImageWithComposeFallsBackAndRewritesConfig(): void {
+    public function testBuildImageWithComposeUsesResolvedCommandOnly(): void {
         $service = new class extends Docker {
             public array $commands = [];
-            public bool $firstShouldFail = true;
 
             public function __construct() {
                 parent::__construct();
@@ -21,12 +20,6 @@ final class DockerComposeFallbackTest extends MchefTestCase {
 
             protected function exec(string $cmd, ?string $errorMsg = null, ?bool $silent = false): string {
                 $this->commands[] = $cmd;
-                if (str_contains($cmd, ' build')) {
-                    if ($this->firstShouldFail) {
-                        $this->firstShouldFail = false;
-                        throw new ExecFailed('first failed', 0, $cmd);
-                    }
-                }
                 return '';
             }
         };
@@ -38,9 +31,7 @@ final class DockerComposeFallbackTest extends MchefTestCase {
 
         $mainConfig = new GlobalConfig(dockerComposeCommand: 'docker compose');
         $configurator->method('getMainConfig')->willReturn($mainConfig);
-        $configurator->expects($this->once())
-            ->method('setMainConfigField')
-            ->with('dockerComposeCommand', 'docker-compose');
+        $configurator->expects($this->never())->method('setMainConfigField');
 
         $this->applyMockedServices(['configurator' => $configurator], $service);
 
@@ -55,20 +46,23 @@ final class DockerComposeFallbackTest extends MchefTestCase {
 
         $service->buildImageWithCompose('/tmp/docker-compose.yml', $dockerData, 'my/image:tag', '/tmp', false);
 
-        $this->assertGreaterThanOrEqual(2, count($service->commands));
+        $this->assertGreaterThanOrEqual(1, count($service->commands));
         $this->assertStringContainsString('docker compose', $service->commands[0]);
-        $this->assertStringContainsString('docker-compose', $service->commands[1]);
+        $this->assertStringNotContainsString('docker-compose --project-directory', $service->commands[0]);
     }
 
-    public function testBuildImageWithComposeThrowsWhenBothCommandsFail(): void {
+    public function testBuildImageWithComposeThrowsWhenResolvedCommandFails(): void {
         $service = new class extends Docker {
+            public array $commands = [];
+
             public function __construct() {
                 parent::__construct();
             }
 
             protected function exec(string $cmd, ?string $errorMsg = null, ?bool $silent = false): string {
+                $this->commands[] = $cmd;
                 if (str_contains($cmd, ' build')) {
-                    throw new ExecFailed('always fails', 0, $cmd);
+                    throw new ExecFailed('build fails', 0, $cmd);
                 }
                 return '';
             }
@@ -96,5 +90,7 @@ final class DockerComposeFallbackTest extends MchefTestCase {
 
         $this->expectException(ExecFailed::class);
         $service->buildImageWithCompose('/tmp/docker-compose.yml', $dockerData, 'my/image:tag', '/tmp', false);
+
+        $this->assertCount(1, array_filter($service->commands, fn($cmd) => str_contains($cmd, ' build')));
     }
 }

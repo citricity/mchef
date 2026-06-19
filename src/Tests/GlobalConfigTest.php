@@ -3,6 +3,7 @@
 namespace App\Tests;
 
 use App\Model\GlobalConfig;
+use App\Service\Configurator;
 
 final class GlobalConfigTest extends MchefTestCase {
 
@@ -12,7 +13,8 @@ final class GlobalConfigTest extends MchefTestCase {
     }
 
     public function testDockerComposeCommandPersistsThroughJsonRoundtrip(): void {
-        $configPath = sys_get_temp_dir() . '/mchef_test_config/global_config_roundtrip.json';
+        $configurator = Configurator::instance(); // This will auto initialize the config dir if not present.
+        $configPath = $configurator->configDir() . '/global_config_roundtrip.json';
         $config = new GlobalConfig(dockerComposeCommand: 'docker-compose');
 
         $config->toJSONFile($configPath);

@@ -4,14 +4,11 @@ namespace App\Tests;
 
 use App\Model\GlobalConfig;
 use App\Service\Configurator;
-use App\Service\Dependencies;
-use App\Traits\CallRestrictedMethodTrait;
+use App\Service\Docker;
 use PHPUnit\Framework\MockObject\MockObject;
 
 final class DependenciesComposeResolutionTest extends MchefTestCase {
-    use CallRestrictedMethodTrait;
-
-    private Dependencies $dependencies;
+    private Docker $docker;
     private MockObject $configurator;
     private string $originalPath;
     private array $tempDirs = [];
@@ -21,13 +18,13 @@ final class DependenciesComposeResolutionTest extends MchefTestCase {
 
         $this->originalPath = getenv('PATH') ?: '';
 
-        $this->dependencies = Dependencies::instance(true);
+        $this->docker = Docker::instance(true);
         $this->configurator = $this->getMockBuilder(Configurator::class)
             ->disableOriginalConstructor()
             ->onlyMethods(['getMainConfig', 'setMainConfigField'])
             ->getMock();
 
-        $this->applyMockedServices(['configurator' => $this->configurator], $this->dependencies);
+        $this->applyMockedServices(['configurator' => $this->configurator], $this->docker);
     }
 
     protected function tearDown(): void {
@@ -82,9 +79,7 @@ final class DependenciesComposeResolutionTest extends MchefTestCase {
     }
 
     private function getLastComposeError(): string {
-        $reflection = new \ReflectionClass($this->dependencies);
-        $property = $reflection->getProperty('lastComposeResolutionError');
-        return (string) $property->getValue($this->dependencies);
+        return $this->docker->getLastComposeResolutionError();
     }
 
     public function testResolveComposeFallsBackToDockerComposeBinaryAndPersists(): void {
@@ -102,7 +97,7 @@ final class DependenciesComposeResolutionTest extends MchefTestCase {
             ->method('setMainConfigField')
             ->with('dockerComposeCommand', 'docker-compose');
 
-        $resolved = $this->callRestricted($this->dependencies, 'resolveComposeCommand', []);
+        $resolved = $this->docker->resolveComposeCommand();
 
         $this->assertEquals('docker-compose', $resolved);
         $this->assertEquals('ok', $this->getLastComposeError());
@@ -120,7 +115,7 @@ final class DependenciesComposeResolutionTest extends MchefTestCase {
         $this->configurator->method('getMainConfig')->willReturn($config);
         $this->configurator->expects($this->never())->method('setMainConfigField');
 
-        $resolved = $this->callRestricted($this->dependencies, 'resolveComposeCommand', []);
+        $resolved = $this->docker->resolveComposeCommand();
 
         $this->assertNull($resolved);
         $this->assertEquals('not_available', $this->getLastComposeError());
@@ -142,7 +137,7 @@ final class DependenciesComposeResolutionTest extends MchefTestCase {
         $this->configurator->method('getMainConfig')->willReturn($config);
         $this->configurator->expects($this->never())->method('setMainConfigField');
 
-        $resolved = $this->callRestricted($this->dependencies, 'resolveComposeCommand', []);
+        $resolved = $this->docker->resolveComposeCommand();
 
         $this->assertNull($resolved);
         $this->assertEquals('version_not_parsable', $this->getLastComposeError());
@@ -162,7 +157,7 @@ final class DependenciesComposeResolutionTest extends MchefTestCase {
         $this->configurator->method('getMainConfig')->willReturn($config);
         $this->configurator->expects($this->never())->method('setMainConfigField');
 
-        $resolved = $this->callRestricted($this->dependencies, 'resolveComposeCommand', []);
+        $resolved = $this->docker->resolveComposeCommand();
 
         $this->assertNull($resolved);
         $this->assertEquals('version_unsupported', $this->getLastComposeError());

@@ -170,34 +170,12 @@ class Main extends AbstractService {
 
         // Compose the command
         $dockerBuildKit = $dockerData->reposUseSsh ? 'DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 ' : '';
-        $mainConfig = $this->configuratorService->getMainConfig();
-        $composeCmd = $mainConfig->dockerComposeCommand ?: 'docker compose';
-        $alternateComposeCmd = $composeCmd === 'docker-compose' ? 'docker compose' : 'docker-compose';
+        $composeCmd = $this->dockerService->getComposeCommand();
 
         $baseArgs = "--project-directory \"{$this->getChefPath()}/docker\" -f \"$ymlPath\" up -d --force-recreate --build";
         $cmd = "{$dockerBuildKit}{$composeCmd} {$baseArgs}";
         $errorMsg = "Error starting docker containers - try pruning with 'docker builder prune' OR 'docker system prune' (note 'docker system prune' will destroy all non running container images)";
-
-        try {
-            $this->execPassthru($cmd, $errorMsg);
-        } catch (ExecFailed $firstFailure) {
-            $fallbackCmd = "{$dockerBuildKit}{$alternateComposeCmd} {$baseArgs}";
-            try {
-                $this->cli->warning("Compose command failed, retrying with: {$alternateComposeCmd}");
-                $this->execPassthru($fallbackCmd, $errorMsg);
-                if ($mainConfig->dockerComposeCommand !== $alternateComposeCmd) {
-                    $this->configuratorService->setMainConfigField('dockerComposeCommand', $alternateComposeCmd);
-                    $this->cli->notice("Updated compose command preference to: {$alternateComposeCmd}");
-                }
-            } catch (ExecFailed $fallbackFailure) {
-                throw new ExecFailed(
-                    $errorMsg . " Tried compose commands: {$composeCmd} and {$alternateComposeCmd}",
-                    0,
-                    $firstFailure->getCmd(),
-                    $fallbackFailure
-                );
-            }
-        }
+        $this->execPassthru($cmd, $errorMsg);
 
         // @Todo - Add code here to check docker ps for expected running containers.
         // For example, if one of the Apache virtual hosts has an error in it, it will bomb out.
