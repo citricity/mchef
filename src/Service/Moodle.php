@@ -8,8 +8,8 @@ class Moodle extends AbstractService {
 
     private Git $gitService;
 
-    final public static function instance(): Moodle {
-        return self::setup_singleton();
+    final public static function instance(bool $reset = false): Moodle {
+        return self::setup_singleton($reset);
     }
     
     /**

@@ -22,8 +22,8 @@ class Plugins extends AbstractService {
     private Moodle $moodleService;
     private Git $gitService;
 
-    final public static function instance(): Plugins {
-        return self::setup_singleton();
+    final public static function instance(bool $reset = false): Plugins {
+        return self::setup_singleton($reset);
     }
 
     private function getBaseMoodlePluginPath(string $pluginName): string {

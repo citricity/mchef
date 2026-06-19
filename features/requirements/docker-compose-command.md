@@ -45,6 +45,6 @@ The system should detect the working command, persist that choice in main config
 
 ## Status
 
-- [x] Not started
+- [ ] Not started
 - [ ] In progress
-- [ ] Completed
+- [x] Completed
