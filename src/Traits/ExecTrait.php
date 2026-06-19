@@ -94,6 +94,8 @@ trait ExecTrait {
         $maxCaptureBytes = 131072; // 128 KB
         $cliOutput = '';
 
+        $flushChunkBytes = 4096; // Keep output responsive without 1-byte callback overhead.
+
         ob_start(function (string $buffer) use (&$cliOutput, $maxCaptureBytes): string {
             $cliOutput .= $buffer;
             $len = strlen($cliOutput);
@@ -101,7 +103,7 @@ trait ExecTrait {
                 $cliOutput = substr($cliOutput, $len - $maxCaptureBytes);
             }
             return $buffer; // Preserve normal passthru behavior (print live)
-        }, 1);
+        }, $flushChunkBytes);
 
         passthru($runCmd, $returnVar);
         ob_end_flush();
