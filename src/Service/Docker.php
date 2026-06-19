@@ -441,7 +441,8 @@ class Docker extends AbstractService {
                     $unsupportedVersionCandidates[] = $candidate;
                     continue;
                 }
-                if ($currentCmd !== $candidate) {
+                $rawCmd = trim((string) ($this->configurator->getMainConfig()->dockerComposeCommand ?? ''));
+                if ($currentCmd !== $candidate || $rawCmd !== $candidate) {
                     $this->configurator->setMainConfigField('dockerComposeCommand', $candidate);
                     $this->cli->notice("Using compose command: $candidate");
                 }

@@ -19,10 +19,7 @@ The system should detect the working command, persist that choice in main config
 - Main config must persist the selected command in a dedicated field (recommended: `dockerComposeCommand`).
 - Compose major version validation must remain enforced (`>= 2`) on the command that succeeds.
 - All compose execution paths must use configured command selection instead of hardcoded `docker compose`.
-- If compose execution fails in runtime paths, the application must:
-- retry once with the alternate command
-- rewrite main config to the alternate command if retry succeeds
-- return a clear error if both commands fail
+- If compose execution fails in runtime paths, the application must return a clear error.
 - Existing compose arguments, flags, and env-prefix behavior must remain unchanged.
 
 ## User Stories

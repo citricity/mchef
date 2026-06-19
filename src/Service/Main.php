@@ -2,7 +2,6 @@
 
 namespace App\Service;
 
-use App\Exceptions\ExecFailed;
 use App\Helpers\OS;
 use App\Model\DockerData;
 use App\Model\PluginsInfo;
