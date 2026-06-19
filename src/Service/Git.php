@@ -12,8 +12,8 @@ class Git extends AbstractService {
     private File $fileService;
     private Github $githubService;
 
-    final public static function instance(): Git {
-        return self::setup_singleton();
+    final public static function instance(bool $reset = false): Git {
+        return self::setup_singleton($reset);
     }
 
     private function enforceIsGitRepository(string $path) {

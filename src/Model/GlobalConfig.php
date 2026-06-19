@@ -66,6 +66,12 @@ class GlobalConfig extends AbstractModel {
         /**
          * Registry password for publishing images
          */
-        public ?string $registryPassword = null
+        public ?string $registryPassword = null,
+
+        /**
+         * Preferred docker compose command.
+         * Allowed values: "docker compose" or "docker-compose"
+         */
+        public ?string $dockerComposeCommand = null
     ) {}
 }

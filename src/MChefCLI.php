@@ -68,7 +68,7 @@ class MChefCLI extends CLI {
 
     protected function setup(Options $options) {
         // Run dependency checks. If one of them fails, program will die()
-        $this->depService = \App\Service\Dependencies::instance($this);
+        $this->depService = \App\Service\Dependencies::instance();
         $this->depService->check();        
         $options->setHelp('Facilitates the creation of moodle docker instances with custom configurations.');
 

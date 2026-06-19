@@ -169,8 +169,12 @@ class Main extends AbstractService {
 
         // Compose the command
         $dockerBuildKit = $dockerData->reposUseSsh ? 'DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 ' : '';
-        $cmd = "{$dockerBuildKit}docker compose --project-directory \"{$this->getChefPath()}/docker\" -f \"$ymlPath\" up -d --force-recreate --build";
-        $this->execPassthru($cmd, "Error starting docker containers - try pruning with 'docker builder prune' OR 'docker system prune' (note 'docker system prune' will destroy all non running container images)");
+        $composeCmd = $this->dockerService->getComposeCommand();
+
+        $baseArgs = "--project-directory \"{$this->getChefPath()}/docker\" -f \"$ymlPath\" up -d --force-recreate --build";
+        $cmd = "{$dockerBuildKit}{$composeCmd} {$baseArgs}";
+        $errorMsg = "Error starting docker containers - try pruning with 'docker builder prune' OR 'docker system prune' (note 'docker system prune' will destroy all non running container images)";
+        $this->execPassthru($cmd, $errorMsg);
 
         // @Todo - Add code here to check docker ps for expected running containers.
         // For example, if one of the Apache virtual hosts has an error in it, it will bomb out.

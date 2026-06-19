@@ -22,12 +22,16 @@ final class ListAll extends AbstractCommand {
     // Constants
     const COMMAND_NAME = 'list';
 
-    public static function instance(): ListAll {
-        return self::setup_singleton();
+    public static function instance(bool $reset = false): ListAll {
+        return self::setup_singleton($reset);
     }
 
     public function execute(Options $options): void {
         $instances = $this->configuratorService->getInstanceRegistry();
+        if (empty($instances)) {
+            $this->cli->info("No mchef instances have been registered.");
+            return;
+        }
         $config = $this->configuratorService->getMainConfig();
         $selectedInstance = $config->instance ?? null;
         foreach ($instances as $instance) {

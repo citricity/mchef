@@ -31,8 +31,8 @@ class Database extends AbstractService {
         // Initialize lazily when needed.
     }
 
-    final public static function instance(): Database {
-        return self::setup_singleton();
+    final public static function instance(bool $reset = false): Database {
+        return self::setup_singleton($reset);
     }
 
     private static function ensureInitializedPDO(): void {

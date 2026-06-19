@@ -29,7 +29,7 @@ class PublicFolderIntegrationTest extends MchefTestCase {
     }
 
     public function testPluginPathGenerationWithoutPublicFolder(): void {
-        $pluginsService = Plugins::instance();
+        $pluginsService = Plugins::instance(true);
         
         // Create a recipe for Moodle 5.0 (no public folder)
         $recipe = new Recipe(
@@ -49,7 +49,7 @@ class PublicFolderIntegrationTest extends MchefTestCase {
     }
 
     public function testPluginPathGenerationWithPublicFolder(): void {
-        $pluginsService = Plugins::instance();
+        $pluginsService = Plugins::instance(true);
         
         // Create a recipe for Moodle 5.1.0 (has public folder)
         $recipe = new Recipe(

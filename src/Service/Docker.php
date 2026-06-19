@@ -2,6 +2,7 @@
 
 namespace App\Service;
 
+use App\Exceptions\ExecFailed;
 use App\Model\DockerContainer;
 use App\Model\DockerData;
 use App\Model\DockerNetwork;
@@ -11,8 +12,18 @@ use splitbrain\phpcli\Exception;
 class Docker extends AbstractService {
     use ExecTrait;
 
-    final public static function instance(): Docker {
-        return self::setup_singleton();
+    private static bool $dockerComposeCommandResolved = false;
+
+    public const COMPOSE_OK = 'ok';
+    public const COMPOSE_NOT_AVAILABLE = 'not_available';
+    public const COMPOSE_VERSION_NOT_PARSABLE = 'version_not_parsable';
+    public const COMPOSE_VERSION_UNSUPPORTED = 'version_unsupported';
+
+    private Configurator $configurator;
+    private string $lastComposeResolutionError = self::COMPOSE_OK;
+
+    final public static function instance(bool $reset = false): Docker {
+        return self::setup_singleton($reset);
     }
 
     private function getTableHeadingPositions(string $table, array $headings): array {
@@ -336,6 +347,140 @@ class Docker extends AbstractService {
         $this->exec($cmd, "Failed to push image: {$imageName}");
     }
 
+    public function getComposeCommand(bool $checkResolved = true): string {
+        if ($checkResolved && !self::$dockerComposeCommandResolved) {
+            $this->resolveComposeCommand();
+        }
+        $mainConfig = $this->configurator->getMainConfig();
+        $command = $mainConfig->dockerComposeCommand ?: 'docker compose';
+        $command = trim($command);
+        $allowed = ['docker compose', 'docker-compose'];
+        if (!in_array($command, $allowed, true)) {
+            $command = 'docker compose';
+        }
+        return $command;
+    }
+
+    public function getLastComposeResolutionError(): string {
+        return $this->lastComposeResolutionError;
+    }
+
+    private function getAlternateComposeCommand(string $cmd): string {
+        return $cmd === 'docker-compose' ? 'docker compose' : 'docker-compose';
+    }
+
+    /**
+     * @return array{0:string,1:int}
+     */
+    private function probeComposeVersion(string $composeCmd): array {
+        $versionString = '';
+
+        try {
+            $jsonCmd = "$composeCmd version -f json";
+            // Do not output an error if exec fails.
+            $jsonOutput = $this->exec($jsonCmd);
+            $decoded = json_decode($jsonOutput, null, 512, JSON_THROW_ON_ERROR);
+            if (!empty($decoded->version)) {
+                $versionString = (string) $decoded->version;
+            }
+        } catch (ExecFailed | \JsonException $ignored) {
+            // Some docker-compose installations do not support json output for version.
+        }
+
+        if (empty($versionString)) {
+            // Fallback to non JSON docker compose version output.
+            $plainCmd = "$composeCmd version";
+            $plainOutput = $this->exec($plainCmd, "Error - Is docker compose installed?");
+            if (preg_match('/([0-9]+(?:\.[0-9]+)+)/', $plainOutput, $matches)) {
+                $versionString = $matches[1];
+            }
+        }
+
+        if (empty($versionString)) {
+            throw new \Exception("Failed to parse docker compose version output for '$composeCmd'");
+        }
+
+        if (!preg_match('/([0-9]+(?:\.[0-9]+)+)/', $versionString, $matches)) {
+            throw new \Exception("Failed to parse docker compose version output for '$composeCmd'");
+        }
+
+        $version = $matches[1];
+        $major = intval(explode('.', $version)[0]);
+        return [$version, $major];
+    }
+
+    public function resolveComposeCommand(): ?string {
+        $this->lastComposeResolutionError = self::COMPOSE_OK;
+        $preferred = $this->getComposeCommand(false);
+
+        $candidates = [];
+        $unsupportedVersionCandidates = [];
+        $hadExecFailure = false;
+        $hadParseFailure = false;
+
+        if (!empty($preferred)) {
+            $candidates[] = $preferred;
+            $alternate = $this->getAlternateComposeCommand($preferred);
+            if (!in_array($alternate, $candidates, true)) {
+                $candidates[] = $alternate;
+            }
+        }
+
+        if (!in_array('docker compose', $candidates, true)) {
+            $candidates[] = 'docker compose';
+        }
+        if (!in_array('docker-compose', $candidates, true)) {
+            $candidates[] = 'docker-compose';
+        }
+
+        $currentCmd = $this->getComposeCommand(false);
+        foreach ($candidates as $candidate) {
+            try {
+                [, $major] = $this->probeComposeVersion($candidate);
+                if ($major < 2) {
+                    $unsupportedVersionCandidates[] = $candidate;
+                    continue;
+                }
+                $rawCmd = trim((string) ($this->configurator->getMainConfig()->dockerComposeCommand ?? ''));
+                if ($currentCmd !== $candidate || $rawCmd !== $candidate) {
+                    $this->configurator->setMainConfigField('dockerComposeCommand', $candidate);
+                    $this->cli->notice("Using compose command: $candidate");
+                }
+                self::$dockerComposeCommandResolved = true;
+                return $candidate;
+            } catch (ExecFailed $ignored) {
+                // Continue trying alternates.
+                $hadExecFailure = true;
+            } catch (\Exception $e) {
+                $this->cli->debug($e->getMessage());
+                $hadParseFailure = true;
+                continue;
+            }
+        }
+
+        self::$dockerComposeCommandResolved = true;
+        if (!empty($unsupportedVersionCandidates)) {
+            $versions = implode(', ', $unsupportedVersionCandidates);
+            $this->cli->error("docker compose version >= 2.x required (checked commands: $versions)");
+            $this->lastComposeResolutionError = self::COMPOSE_VERSION_UNSUPPORTED;
+            return null;
+        }
+
+        if ($hadParseFailure) {
+            $this->lastComposeResolutionError = self::COMPOSE_VERSION_NOT_PARSABLE;
+            return null;
+        }
+
+        if ($hadExecFailure) {
+            $this->lastComposeResolutionError = self::COMPOSE_NOT_AVAILABLE;
+            return null;
+        }
+
+        $this->lastComposeResolutionError = self::COMPOSE_NOT_AVAILABLE;
+
+        return null;
+    }
+
     /**
      * Build Docker image with custom name using docker compose.
      * 
@@ -351,8 +496,11 @@ class Docker extends AbstractService {
         
         // Build using docker compose but don't start containers
         $dockerBuildKit = $usesSsh ? 'DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 ' : '';
-        $cmd = "{$dockerBuildKit}docker compose --project-directory {$projectDirEscaped} -f {$composeFileEscaped} build";
-        $this->exec($cmd, "Failed to build image with docker compose");
+        $composeCmd = $this->getComposeCommand();
+        $baseArgs = "--project-directory {$projectDirEscaped} -f {$composeFileEscaped} build";
+        $cmd = "{$dockerBuildKit}{$composeCmd} {$baseArgs}";
+        $errorMsg = "Failed to build image with docker compose";
+        $this->exec($cmd, $errorMsg);
         
         // Get the built image name from compose and tag it with our custom name
         // This is a bit tricky - we need to inspect what compose built and rename it

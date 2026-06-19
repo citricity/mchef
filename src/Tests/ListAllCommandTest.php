@@ -106,7 +106,7 @@ class ListAllCommandTest extends MchefTestCase {
         $globalConfig->instance = null;
         $configurator->method('getMainConfig')->willReturn($globalConfig);
         $recipeService = $this->createMock(RecipeService::class);
-        $listAll = ListAll::instance();
+        $listAll = ListAll::instance(true);
         $this->applyMockedServices([
             'configuratorService' => $configurator,
             'mainService' => $main,
@@ -116,7 +116,7 @@ class ListAllCommandTest extends MchefTestCase {
         ob_start();
         $listAll->execute($options);
         $output = ob_get_clean();
-        $this->assertEmpty(trim($output));
+        $this->assertStringContainsString('No mchef instances have been registered.', $output);
     }
 
     public function testListAllWithAllInactiveInstances() {
