@@ -1,7 +1,6 @@
 # Docker Compose Command Detection and Fallback
 
-## Status - Not implemented
-
+## Status - Implemented
 ## Description
 
 Moodle Chef must support environments where Docker Compose is available as either `docker compose` or `docker-compose`.
