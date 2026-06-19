@@ -70,7 +70,7 @@ final class SampleDataTest extends MchefTestCase {
 
         // Should return early without calling any methods
         $this->moodleService->expects($this->never())
-            ->method('getDockerMoodlePath');
+            ->method('getDockerMoodlePublicPath');
 
         $this->sampleDataService->generateSampleData($recipe, 'test-container');
     }
@@ -85,7 +85,7 @@ final class SampleDataTest extends MchefTestCase {
         );
 
         $this->moodleService->expects($this->once())
-            ->method('getDockerMoodlePath')
+            ->method('getDockerMoodlePublicPath')
             ->with($recipe)
             ->willReturn('/var/www/html/moodle');
 
@@ -117,7 +117,7 @@ final class SampleDataTest extends MchefTestCase {
         );
 
         $this->moodleService->expects($this->once())
-            ->method('getDockerMoodlePath')
+            ->method('getDockerMoodlePublicPath')
             ->with($recipe)
             ->willReturn('/var/www/html/moodle');
 
@@ -143,7 +143,7 @@ final class SampleDataTest extends MchefTestCase {
         );
 
         $this->moodleService->expects($this->once())
-            ->method('getDockerMoodlePath')
+            ->method('getDockerMoodlePublicPath')
             ->with($recipe)
             ->willReturn('/var/www/html/moodle');
 
@@ -169,7 +169,7 @@ final class SampleDataTest extends MchefTestCase {
         );
 
         $this->moodleService->expects($this->once())
-            ->method('getDockerMoodlePath')
+            ->method('getDockerMoodlePublicPath')
             ->with($recipe)
             ->willReturn('/var/www/html/moodle');
 
@@ -196,7 +196,7 @@ final class SampleDataTest extends MchefTestCase {
         );
 
         $this->moodleService->expects($this->once())
-            ->method('getDockerMoodlePath')
+            ->method('getDockerMoodlePublicPath')
             ->with($recipe)
             ->willReturn('/var/www/html/moodle');
 
@@ -220,7 +220,7 @@ final class SampleDataTest extends MchefTestCase {
         );
 
         $this->moodleService->expects($this->once())
-            ->method('getDockerMoodlePath')
+            ->method('getDockerMoodlePublicPath')
             ->with($recipe)
             ->willReturn('/var/www/html/moodle');
 
@@ -253,7 +253,7 @@ final class SampleDataTest extends MchefTestCase {
         );
 
         $this->moodleService->expects($this->once())
-            ->method('getDockerMoodlePath')
+            ->method('getDockerMoodlePublicPath')
             ->with($recipe)
             ->willReturn('/var/www/html/moodle');
 
@@ -287,7 +287,7 @@ final class SampleDataTest extends MchefTestCase {
         );
 
         $this->moodleService->expects($this->once())
-            ->method('getDockerMoodlePath')
+            ->method('getDockerMoodlePublicPath')
             ->with($recipe)
             ->willReturn('/var/www/html/moodle');
 
@@ -324,7 +324,7 @@ final class SampleDataTest extends MchefTestCase {
         );
 
         $this->moodleService->expects($this->once())
-            ->method('getDockerMoodlePath')
+            ->method('getDockerMoodlePublicPath')
             ->with($recipe)
             ->willReturn('/var/www/html/moodle');
 
@@ -359,7 +359,7 @@ final class SampleDataTest extends MchefTestCase {
         );
 
         $this->moodleService->expects($this->once())
-            ->method('getDockerMoodlePath')
+            ->method('getDockerMoodlePublicPath')
             ->with($recipe)
             ->willReturn('/var/www/html/moodle');
 
@@ -393,7 +393,7 @@ final class SampleDataTest extends MchefTestCase {
         );
 
         $this->moodleService->expects($this->once())
-            ->method('getDockerMoodlePath')
+            ->method('getDockerMoodlePublicPath')
             ->with($recipe)
             ->willReturn('/var/www/html/moodle');
 
@@ -428,7 +428,7 @@ final class SampleDataTest extends MchefTestCase {
         );
 
         $this->moodleService->expects($this->once())
-            ->method('getDockerMoodlePath')
+            ->method('getDockerMoodlePublicPath')
             ->with($recipe)
             ->willReturn('/var/www/html/moodle');
 
@@ -455,7 +455,7 @@ final class SampleDataTest extends MchefTestCase {
         );
 
         $this->moodleService->expects($this->once())
-            ->method('getDockerMoodlePath')
+            ->method('getDockerMoodlePublicPath')
             ->with($recipe)
             ->willReturn('/var/www/html/moodle');
 
@@ -481,7 +481,7 @@ final class SampleDataTest extends MchefTestCase {
         );
 
         $this->moodleService->expects($this->once())
-            ->method('getDockerMoodlePath')
+            ->method('getDockerMoodlePublicPath')
             ->with($recipe)
             ->willReturn('/var/www/html/moodle');
 
@@ -514,7 +514,7 @@ final class SampleDataTest extends MchefTestCase {
 
             $moodleService = $this->createMock(Moodle::class);
             $moodleService->expects($this->once())
-                ->method('getDockerMoodlePath')
+                ->method('getDockerMoodlePublicPath')
                 ->with($recipe)
                 ->willReturn('/var/www/html/moodle');
             
