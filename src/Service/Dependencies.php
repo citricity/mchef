@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Service;
+
 use App\Helpers\OS;
 use App\Traits\ExecTrait;
 
@@ -8,8 +9,11 @@ final class Dependencies extends AbstractService {
 
     use ExecTrait;
 
-    public static function instance(): Dependencies {
-        return self::setup_singleton();
+    // Service Dependencies
+    private Docker $dockerService;
+
+    public static function instance(bool $reset = false): Dependencies {
+        return self::setup_singleton($reset);
     }
 
     private function dockerIsInstalled(): bool {
@@ -46,22 +50,17 @@ final class Dependencies extends AbstractService {
 
       if (!$failed) {
           $this->cli->debug('Checking your docker compose version');
-          try {
-              $cmd = "docker compose version -f json";
-              preg_match(
-                  "/(?:version|v)\s*((?:[0-9]+\.?)+)/i",
-                  json_decode(
-                      $this->exec($cmd, "Error - Is docker compose installed?")
-                  )->version,
-                  $matches
-              );
-              $dcVersion = explode('.', $matches[1])[0];
-              if (intval($dcVersion) < 2) {
-                  $this->cli->error("docker compose version >= 2.x required");
-                  $failed = true;
+          $resolvedComposeCommand = $this->dockerService->resolveComposeCommand();
+          $composeStatus = $this->dockerService->getLastComposeResolutionError();
+          if (empty($resolvedComposeCommand)) {
+              if ($composeStatus === Docker::COMPOSE_VERSION_UNSUPPORTED) {
+                  // Error already shown by resolveComposeCommand.
+              } else if ($composeStatus === Docker::COMPOSE_VERSION_NOT_PARSABLE) {
+                  $this->cli->error('Docker Compose version output is not parsable.');
+              } else {
+                  $this->cli->warning('Docker Compose is not installed.');
+                  $this->cli->error('Tried both compose commands: docker compose and docker-compose.');
               }
-          } catch (\Exception $ex) {
-              $this->cli->error($ex);
               $failed = true;
           }
       }

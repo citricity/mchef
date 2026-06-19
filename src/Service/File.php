@@ -11,8 +11,8 @@ use splitbrain\phpcli\Exception;
 class File extends AbstractService {
     use ExecTrait;
 
-    final public static function instance(): File {
-        return self::setup_singleton();
+    final public static function instance(bool $reset = false): File {
+        return self::setup_singleton($reset);
     }
 
     /**
