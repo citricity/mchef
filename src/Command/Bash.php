@@ -25,7 +25,7 @@ final class Bash extends AbstractCommand {
         $instanceName = $instance->containerPrefix;
         $containerName = $this->mainService->getDockerMoodleContainerName($instanceName);
         $cmd = 'docker exec -it '.$containerName.' bash';
-        $this->execPassthru($cmd);
+        $this->execInteractive($cmd);
     }
 
    protected function register(Options $options): void {
