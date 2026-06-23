@@ -92,10 +92,96 @@ final class ModelJSONDeserializer extends AbstractService {
         // Handle based on parameter type
         $paramType = $parameter->getType();
         if ($paramType) {
+            $isEnumParameter = false;
+            $enumValue = $this->processEnumValue($value, $parameter, $paramType, $isEnumParameter);
+            if ($isEnumParameter) {
+                return $enumValue;
+            }
             return $this->processValueByType($value, $paramType);
         }
 
         return $value;
+    }
+
+    /**
+     * Process enum-typed parameter values and coerce invalid values to default/null when possible.
+     */
+    private function processEnumValue(
+        mixed $value,
+        \ReflectionParameter $parameter,
+        \ReflectionType $type,
+        bool &$isEnumParameter
+    ): mixed {
+        $isEnumParameter = false;
+        $enumTypes = [];
+
+        if ($type instanceof \ReflectionNamedType) {
+            $typeName = $type->getName();
+            if (enum_exists($typeName)) {
+                $isEnumParameter = true;
+                $enumTypes[] = $typeName;
+            }
+        } else if ($type instanceof \ReflectionUnionType) {
+            foreach ($type->getTypes() as $unionType) {
+                if (!$unionType instanceof \ReflectionNamedType) {
+                    continue;
+                }
+                $typeName = $unionType->getName();
+                if (enum_exists($typeName)) {
+                    $isEnumParameter = true;
+                    $enumTypes[] = $typeName;
+                }
+            }
+        }
+
+        if (!$isEnumParameter) {
+            return $value;
+        }
+
+        foreach ($enumTypes as $enumType) {
+            $coerced = $this->coerceEnumCase($value, $enumType);
+            if ($coerced !== null) {
+                return $coerced;
+            }
+        }
+
+        if ($parameter->isDefaultValueAvailable()) {
+            return $parameter->getDefaultValue();
+        }
+
+        if ($parameter->allowsNull()) {
+            return null;
+        }
+
+        throw new Exception("Invalid enum value for parameter '{$parameter->getName()}'");
+    }
+
+    /**
+     * Coerce a scalar/string enum name into an enum case.
+     */
+    private function coerceEnumCase(mixed $value, string $enumType): ?\UnitEnum {
+        if ($value instanceof $enumType) {
+            return $value;
+        }
+
+        if (is_subclass_of($enumType, \BackedEnum::class)) {
+            if (is_string($value) || is_int($value)) {
+                $case = $enumType::tryFrom($value);
+                if ($case !== null) {
+                    return $case;
+                }
+            }
+        }
+
+        if (is_string($value)) {
+            foreach ($enumType::cases() as $case) {
+                if ($case->name === $value) {
+                    return $case;
+                }
+            }
+        }
+
+        return null;
     }
 
     /**

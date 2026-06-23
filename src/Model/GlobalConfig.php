@@ -2,6 +2,8 @@
 
 namespace App\Model;
 
+use App\Enums\DebugMode;
+
 class GlobalConfig extends AbstractModel {
 
     public function __construct(
@@ -72,6 +74,11 @@ class GlobalConfig extends AbstractModel {
          * Preferred docker compose command.
          * Allowed values: "docker compose" or "docker-compose"
          */
-        public ?string $dockerComposeCommand = null
+        public ?string $dockerComposeCommand = null,
+
+        /**
+         * Debug mode for mchef - none, error, warning, verbose
+         */
+        public ?DebugMode $debugMode = DebugMode::NONE
     ) {}
 }

@@ -41,9 +41,9 @@ $CFG->phpunit_prefix = 'phu_';
 $debug = getenv('DEBUG');
 
 if ($debug) {
-    @error_reporting(E_ALL | E_STRICT);
+    @error_reporting(E_ALL);
     @ini_set('display_errors', '1');
-    $CFG->debug = (E_ALL | E_STRICT);
+    $CFG->debug = (E_ALL);
     $CFG->debugdisplay = 1;
 
     // Show performance data in footer.
@@ -58,7 +58,7 @@ if ($debug) {
 $CFG->behat_dataroot = getenv('BEHAT_DATA');
 $CFG->behat_wwwroot = getenv('BEHAT_WWWROOT');
 $CFG->behat_prefix = 'beh_';
-$CFG->behat_faildump_path = '/var/www/html/moodle/behat_dump';
+$CFG->behat_faildump_path = getenv('BEHAT_DUMP_PATH') ?? '/var/www/html/moodle/behat_dump';
 $CFG->behat_increasetimeout = 2;
 
 // Create behat profiles using browser-config tool.
