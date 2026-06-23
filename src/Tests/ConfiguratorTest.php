@@ -2,6 +2,7 @@
 
 namespace App\Tests;
 
+use App\Model\GlobalConfig;
 use App\Service\Configurator;
 
 final class ConfiguratorTest extends MchefTestCase {
@@ -46,5 +47,19 @@ final class ConfiguratorTest extends MchefTestCase {
         $data = json_decode($raw, true);
 
         $this->assertSame('verbose', $data['debugMode']);
+    }
+
+    public function testWriteMainConfigInvalidatesStaticCache(): void {
+        $configurator = Configurator::instance(true);
+
+        $reflection = new \ReflectionClass(Configurator::class);
+        $configProp = $reflection->getProperty('config');
+
+        $configProp->setValue(null, new GlobalConfig(lang: 'de'));
+        $this->assertInstanceOf(GlobalConfig::class, $configProp->getValue());
+
+        $configurator->writeMainConfig(new GlobalConfig(lang: 'fr'));
+
+        $this->assertNull($configProp->getValue());
     }
 }

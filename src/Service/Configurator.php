@@ -8,6 +8,12 @@ use App\Model\RegistryInstance;
 
 class Configurator extends AbstractService {
 
+    static $config = null;
+
+    private function invalidateCachedMainConfig(): void {
+        static::$config = null;
+    }
+
     final public static function instance(bool $reset = false): Configurator {
         return self::setup_singleton($reset)->initializeConfig();
     }
@@ -120,6 +126,7 @@ class Configurator extends AbstractService {
         $content = implode("\n", $rows);
         $path = $this->getRegistryFilePath();
         file_put_contents($path, $content);
+        $this->invalidateCachedMainConfig();
     }
 
     private function upsertRegistryInstance(string $uuid, string $instanceRecipePath, string $containerPrefix) {
@@ -158,22 +165,34 @@ class Configurator extends AbstractService {
         // We need to now put the uuid into the .mchef folder corresponding to the recipe.
         $mchefPath = dirname($instanceRecipePath).'/.mchef';
         file_put_contents($mchefPath.'/registry_uuid.txt', $uuid);
+       $this->invalidateCachedMainConfig();
         return $uuid;
     }
 
     public function getMainConfig(): GlobalConfig {
+        if (TestingHelpers::isPHPUnit()) {
+            // Always reset config to null.
+            static::$config = null;
+        }
+        if (static::$config !== null) {
+            return static::$config;
+        }
         $configPath = $this->mainConfigPath();
         if (!file_exists($configPath)) {
-            return new GlobalConfig();
+            static::$config = new GlobalConfig();
+            return static::$config;
         }
-        return GlobalConfig::fromJSONFile($configPath);
+        static::$config = GlobalConfig::fromJSONFile($configPath);
+        return static::$config;
     }
 
     public function writeMainConfig(GlobalConfig $config) {
         $config->toJSONFile($this->mainConfigPath());
+        $this->invalidateCachedMainConfig();
     }
 
     public function setMainConfigField(string $field, $value) {
+        $this->invalidateCachedMainConfig();
         $mainConfig = $this->getMainConfig();
         $reflection = new \ReflectionClass(GlobalConfig::class);
 

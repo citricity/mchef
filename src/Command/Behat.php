@@ -50,7 +50,6 @@ final class Behat extends AbstractCommand {
         }
         // Get match on success line.
         $pattern = '/Acceptance tests environment enabled on (.+), to run the tests use:/';
-        $this->cli->info('test1');
         $matched = preg_match($pattern, $initOutput, $matches);
         if (!$matched) {
             throw new Exception('Behat initialization seems to have failed: '.$initOutput);

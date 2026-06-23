@@ -16,9 +16,26 @@ use splitbrain\phpcli\Options;
  */
 class TestableMChefCLI extends MChefCLI {
     private ?TermsService $termsService = null;
+    private bool $forwardInfoOutput = false;
+    private array $infoMessages = [];
 
     public function setTermsService(TermsService $termsService): void {
         $this->termsService = $termsService;
+    }
+
+    public function setForwardInfoOutput(bool $forward): void {
+        $this->forwardInfoOutput = $forward;
+    }
+
+    public function getInfoMessages(): array {
+        return $this->infoMessages;
+    }
+
+    public function info($message, array $context = array()) {
+        $this->infoMessages[] = (string)$message;
+        if ($this->forwardInfoOutput) {
+            return parent::info($message, $context);
+        }
     }
 
     protected function resolveTermsService(): TermsService {
@@ -155,6 +172,37 @@ class TermsIntegrationTest extends \PHPUnit\Framework\TestCase {
         
         // If we get here without TermsNotAgreedException, the test passes
         $this->assertTrue(true, 'Command execution proceeded past terms check');
+    }
+
+    public function testListCommandEmitsWelcomeAndNoInstancesMessage(): void {
+        $mockTermsService = $this->createMock(TermsService::class);
+        $mockTermsService->expects($this->once())
+            ->method('ensureTermsAgreement')
+            ->willReturn(true);
+
+        $cli = new TestableMChefCLI(false);
+        $cli->setTermsService($mockTermsService);
+
+        $this->mockOptions->method('getCmd')->willReturn('listall');
+        $this->mockOptions->method('getOpt')->willReturn(false);
+        $this->mockOptions->method('getArgs')->willReturn([]);
+
+        try {
+            $cli->callMain($this->mockOptions);
+        } catch (\Exception $e) {
+            // Ignore non-terms runtime issues for this integration-style behavior test.
+        }
+
+        $messages = $cli->getInfoMessages();
+        $this->assertNotEmpty($messages);
+        $this->assertTrue(
+            (bool) array_filter($messages, fn(string $m) => str_contains($m, 'Mchef:')),
+            'Expected welcome line to be emitted'
+        );
+        $this->assertTrue(
+            (bool) array_filter($messages, fn(string $m) => str_contains($m, 'No mchef instances have been registered.')),
+            'Expected empty instance list line to be emitted'
+        );
     }
     
     public function testTermsFileContainsCorrectData(): void {

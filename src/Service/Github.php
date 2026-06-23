@@ -189,7 +189,7 @@ class Github extends AbstractService {
     }
 
     private function githubFolderExistsFallback(string $repositoryUrl, string $branchOrTag, string $folderPath): bool {
-            [$owner, $repo] = $this->extractGithubOwnerRepo($repositoryUrl);
+        [$owner, $repo] = $this->extractGithubOwnerRepo($repositoryUrl);
 
         $apiUrl = sprintf(
             'https://api.github.com/repos/%s/%s/contents/%s?ref=%s',
@@ -200,17 +200,25 @@ class Github extends AbstractService {
         );
 
         $response = Http::get($apiUrl);
-        
+
+        // GitHub contents API behavior:
+        // - 200 with array body for existing directory
+        // - 404 for non-existent path/ref
+        // For other statuses, raise so caller can fall back to an alternate strategy.
+        if ($response->statusCode === 404) {
+            return false;
+        }
+
+        if ($response->statusCode !== 200) {
+            throw new CliRuntimeException("GitHub API error {$response->statusCode} while checking folder existence");
+        }
+
         $json = $response->body;
         if (empty($json)) {
             return false;
         }
-                
-        $jsonobj = json_decode($json, true);
 
-        if (!empty($jsonobj['status']) && $jsonobj['status'] === "404") {
-            return false;
-        }
-        return is_array($jsonobj);
+        $jsonobj = json_decode($json, true);
+        return is_array($jsonobj) && array_is_list($jsonobj);
     }        
 }
