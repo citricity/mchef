@@ -82,7 +82,11 @@ final class Config extends AbstractCommand {
             $this->configuratorService->setMainConfigField($field, $value);
             $this->cli->notice("Config field '$field' has been set.");
         } catch (\InvalidArgumentException $e) {
-            $this->cli->error("Failed to set config field '$field': ".$e->getMessage());
+            throw new \App\Exceptions\CliRuntimeException(
+                 "Failed to set config field '$field': " . $e->getMessage(),
+                 0,
+                 $e
+             );
         }
     }
 
