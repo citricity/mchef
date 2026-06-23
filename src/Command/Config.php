@@ -128,7 +128,6 @@ final class Config extends AbstractCommand {
 
     private function setDbClient(string $client) {
         $this->setConfigField('dbClient', $client);
-        $this->cli->notice("Default database client has been set.");
     }
 
     private function setDbClientMysql(string $client) {
@@ -136,7 +135,6 @@ final class Config extends AbstractCommand {
             throw new \InvalidArgumentException("Invalid MySQL client option");
         }
         $this->setConfigField('dbClientMysql', $client);
-        $this->cli->notice("Default MySQL client has been set.");
     }
 
     private function setDbClientPgsql(string $client) {
@@ -144,7 +142,6 @@ final class Config extends AbstractCommand {
             throw new \InvalidArgumentException("Invalid PostgreSQL client option");
         }
         $this->setConfigField('dbClientPgsql', $client);
-        $this->cli->notice("Default PostgreSQL client has been set.");
     }
 
     private function setRegistryUrl(string $url) {

@@ -44,6 +44,8 @@ trait SingletonTrait {
         static $instances = [];
         $class = get_called_class();
         if (!$reset && !empty($instances[$class])) {
+            // Keep CLI reference synchronized with current runtime/test context.
+            $instances[$class]->cli = StaticVars::$cli;
             return $instances[$class];
         }
         $instance = new $class();

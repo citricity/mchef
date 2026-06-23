@@ -15,6 +15,16 @@ use splitbrain\phpcli\Options;
  * Test helper class to access protected methods
  */
 class TestableMChefCLI extends MChefCLI {
+    private ?TermsService $termsService = null;
+
+    public function setTermsService(TermsService $termsService): void {
+        $this->termsService = $termsService;
+    }
+
+    protected function resolveTermsService(): TermsService {
+        return $this->termsService ?? parent::resolveTermsService();
+    }
+
     public function callMain(Options $options): void {
         $this->main($options);
     }
@@ -72,9 +82,15 @@ class TermsIntegrationTest extends \PHPUnit\Framework\TestCase {
     
     public function testListAllCommandRequiresTermsAgreement(): void {
         $this->assertFalse($this->termsService->hasAgreedToTerms(), 'Terms should not be agreed initially');
+
+        $mockTermsService = $this->createMock(TermsService::class);
+        $mockTermsService->expects($this->once())
+            ->method('ensureTermsAgreement')
+            ->willReturn(false);
         
         // Create a testable CLI instance
         $cli = new TestableMChefCLI(false);
+        $cli->setTermsService($mockTermsService);
         
         // Mock options for ListAll command
         $this->mockOptions->method('getCmd')->willReturn('listall');
@@ -90,9 +106,15 @@ class TermsIntegrationTest extends \PHPUnit\Framework\TestCase {
     
     public function testUseCmdCommandRequiresTermsAgreement(): void {
         $this->assertFalse($this->termsService->hasAgreedToTerms(), 'Terms should not be agreed initially');
+
+        $mockTermsService = $this->createMock(TermsService::class);
+        $mockTermsService->expects($this->once())
+            ->method('ensureTermsAgreement')
+            ->willReturn(false);
         
         // Create a testable CLI instance
         $cli = new TestableMChefCLI(false);
+        $cli->setTermsService($mockTermsService);
         
         // Mock options for UseCmd command
         $this->mockOptions->method('getCmd')->willReturn('use');
@@ -107,19 +129,21 @@ class TermsIntegrationTest extends \PHPUnit\Framework\TestCase {
     }
     
     public function testCommandsWorkAfterTermsAgreement(): void {
-        // Create terms agreement first
-        $this->termsService->createTermsAgreementForTesting();
-        $this->assertTrue($this->termsService->hasAgreedToTerms(), 'Terms should be agreed');
+        $mockTermsService = $this->createMock(TermsService::class);
+        $mockTermsService->expects($this->once())
+            ->method('ensureTermsAgreement')
+            ->willReturn(true);
         
         // Create a testable CLI instance 
         $cli = new TestableMChefCLI(false);
+        $cli->setTermsService($mockTermsService);
         
         // Mock options for ListAll command (which should now work)
         $this->mockOptions->method('getCmd')->willReturn('listall');
         $this->mockOptions->method('getOpt')->willReturn(false);
         $this->mockOptions->method('getArgs')->willReturn([]);
         
-        // This should not throw an exception because terms are agreed
+        // This should not throw a terms exception because terms check is mocked to pass.
         try {
             $cli->callMain($this->mockOptions);
         } catch (\App\Exceptions\TermsNotAgreedException $e) {
