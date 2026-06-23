@@ -74,7 +74,7 @@ final class Behat extends AbstractCommand {
             return;
         }
 
-        $url = OS::escShellArg(self::VIEW_URL);
+        $url = OS::isWindows() ? escapeshellarg(self::VIEW_URL) : OS::escShellArg(self::VIEW_URL);
 
         if (OS::isMac()) {
             $this->execDetached("open $url");

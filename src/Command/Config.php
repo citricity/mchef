@@ -80,10 +80,10 @@ final class Config extends AbstractCommand {
     private function setConfigField(string $field, mixed $value) {
         try {
             $this->configuratorService->setMainConfigField($field, $value);
+            $this->cli->notice("Config field '$field' has been set.");
         } catch (\InvalidArgumentException $e) {
             $this->cli->error("Failed to set config field '$field': ".$e->getMessage());
-        }   
-        $this->cli->notice("Config field '$field' has been set.");
+        }
     }
 
     public function execute(Options $options): void {

@@ -106,7 +106,6 @@ trait ExecTrait {
         ob_end_flush();
 
         if ($returnVar !== 0) {
-            
             $message = $errorMsg
                 ? $this->processErrorMsg($errorMsg, $cliOutput)
                 : "Exec failed";
