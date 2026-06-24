@@ -8,7 +8,7 @@ use App\Model\RegistryInstance;
 
 class Configurator extends AbstractService {
 
-    static $config = null;
+    private static ?GlobalConfig $config = null;
 
     private function invalidateCachedMainConfig(): void {
         static::$config = null;
