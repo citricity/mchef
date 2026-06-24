@@ -72,14 +72,40 @@ class CICommandTest extends MchefTestCase {
 
     public function testExecuteFailsWithoutPublishTag(): void {
         $this->expectException(CliRuntimeException::class);
-        $this->expectExceptionMessage('Publish tag is required');
+        $this->expectExceptionMessage('Publish tag or tag only is required');
         
         $fixtureFile = __DIR__ . '/Fixtures/test-mrecipe.json';
         $this->cli->method('getRecipePathFromArgs')->willReturn($fixtureFile);
         
         $this->options->method('getArgs')->willReturn([$fixtureFile]);
-        $this->options->method('getOpt')->with('publish')->willReturn(null);
+        $this->options->method('getOpt')->willReturnCallback(function($option, $default = false) {
+            if ($option === 'tag') {
+                return null;
+            }
+            if ($option === 'publish') {
+                return null;
+            }
+            return $default;
+        });
         
+        $this->ciCommand->execute($this->options);
+    }
+
+    public function testExecuteFailsWhenBothTagAndPublishProvided(): void {
+        $this->expectException(CliRuntimeException::class);
+        $this->expectExceptionMessage('Cannot use both --tag and --publish options together');
+
+        $fixtureFile = __DIR__ . '/Fixtures/test-mrecipe.json';
+        $this->cli->method('getRecipePathFromArgs')->willReturn($fixtureFile);
+
+        $this->options->method('getArgs')->willReturn([$fixtureFile]);
+        $this->options->method('getOpt')->willReturnCallback(function($option, $default = false) {
+            if ($option === 'tag' || $option === 'publish') {
+                return 'v1.5.0';
+            }
+            return $default;
+        });
+
         $this->ciCommand->execute($this->options);
     }
 
@@ -88,7 +114,15 @@ class CICommandTest extends MchefTestCase {
         $this->cli->method('getRecipePathFromArgs')->willReturn($fixtureFile);
         
         $this->options->method('getArgs')->willReturn([$fixtureFile]);
-        $this->options->method('getOpt')->with('publish')->willReturn('v1.5.0');
+        $this->options->method('getOpt')->willReturnCallback(function($option, $default = false) {
+            if ($option === 'tag') {
+                return null;
+            }
+            if ($option === 'publish') {
+                return 'v1.5.0';
+            }
+            return $default;
+        });
         
         // Mock recipe loading and preparation
         $mockRecipe = $this->createMock(Recipe::class);
@@ -124,7 +158,15 @@ class CICommandTest extends MchefTestCase {
         $this->cli->method('getRecipePathFromArgs')->willReturn($fixtureFile);
         
         $this->options->method('getArgs')->willReturn([$fixtureFile]);
-        $this->options->method('getOpt')->with('publish')->willReturn('v1.5.0');
+        $this->options->method('getOpt')->willReturnCallback(function($option, $default = false) {
+            if ($option === 'tag') {
+                return null;
+            }
+            if ($option === 'publish') {
+                return 'v1.5.0';
+            }
+            return $default;
+        });
         
         // Mock recipe loading and preparation
         $mockRecipe = $this->createMock(Recipe::class);
@@ -169,6 +211,46 @@ class CICommandTest extends MchefTestCase {
         // Expect success messages
         $this->cli->expects($this->atLeastOnce())->method('info');
         $this->cli->expects($this->atLeastOnce())->method('success');       
+
+        $this->ciCommand->execute($this->options);
+    }
+
+    public function testExecuteWithTagBuildsButSkipsPublishFlow(): void {
+        $fixtureFile = __DIR__ . '/Fixtures/test-mrecipe.json';
+        $this->cli->method('getRecipePathFromArgs')->willReturn($fixtureFile);
+
+        $this->options->method('getArgs')->willReturn([$fixtureFile]);
+        $this->options->method('getOpt')->willReturnCallback(function($option, $default = false) {
+            if ($option === 'tag') {
+                return 'v1.5.0';
+            }
+            if ($option === 'publish') {
+                return null;
+            }
+            return $default;
+        });
+
+        $mockRecipe = $this->createMock(Recipe::class);
+        $mockRecipe->name = 'example';
+        $mockRecipe->publishTagPrefix = null;
+
+        $this->main->expects($this->once())
+            ->method('getRecipe')
+            ->with($fixtureFile)
+            ->willReturn($mockRecipe);
+
+        $this->main->expects($this->once())
+            ->method('buildDockerCiImage')
+            ->with($mockRecipe, 'example:v1.5.0');
+
+        // Tag mode should never attempt publish path.
+        $this->environment->expects($this->never())->method('getRegistryConfig');
+        $this->docker->expects($this->never())->method('loginToRegistry');
+        $this->docker->expects($this->never())->method('tagImage');
+        $this->docker->expects($this->never())->method('pushImage');
+
+        $this->cli->expects($this->atLeastOnce())->method('info');
+        $this->cli->expects($this->once())->method('success');
 
         $this->ciCommand->execute($this->options);
     }

@@ -39,7 +39,9 @@ class CI extends AbstractCommand {
         if (empty($args) || empty($args[0])) {
             throw new CliRuntimeException('Recipe file path is required', 0, null, [
                 'Usage: mchef ci <recipe-file> --publish=<tag>',
-                'Example: mchef ci recipe.json --publish=v1.5.0'
+                'Example: mchef ci recipe.json --publish=v1.5.0',
+                'Usage (tag only): mchef ci --tag=<tag> <recipe-file>',
+                'Example (tag only): mchef ci --tag=v1.5.0 recipe.json'
             ]);
         }
 
@@ -48,12 +50,29 @@ class CI extends AbstractCommand {
             throw new CliRuntimeException('Recipe file does not exist: ' . $recipePath);
         }
 
+        $tag = $options->getOpt('tag');
         $publishTag = $options->getOpt('publish');
-        if (empty($publishTag)) {
-            throw new CliRuntimeException('Publish tag is required', 0, null, [
-                'Usage: mchef ci --publish=<tag> <recipe-file>',
-                'Example: mchef ci --publish=v1.5.0 recipe.json'
+        if (!empty($tag) && !empty($publishTag)) {
+            throw new CliRuntimeException('Cannot use both --tag and --publish options together', 0, null, [
+                'Usage: mchef ci <recipe-file> --publish=<tag>',
+                'Example: mchef ci recipe.json --publish=v1.5.0',
+                'Usage (tag only): mchef ci --tag=<tag> <recipe-file>',
+                'Example (tag only): mchef ci --tag=v1.5.0 recipe.json'
             ]);
+        }
+        if (empty($publishTag) && empty($tag)) {
+            throw new CliRuntimeException('Publish tag or tag only is required', 0, null, [
+                'Usage: mchef ci --publish=<tag> <recipe-file>',
+                'Example: mchef ci --publish=v1.5.0 recipe.json',
+                'Usage (tag only): mchef ci --tag=<tag> <recipe-file>',
+                'Example (tag only): mchef ci --tag=v1.5.0 recipe.json'
+            ]);
+        }
+
+        $tagOnly = false;
+        if (Empty($publishTag)) {
+            $publishTag = $tag;
+            $tagOnly = true;
         }
 
         try {
@@ -64,7 +83,9 @@ class CI extends AbstractCommand {
             $imageName = $this->buildImage($recipe, $publishTag);
             
             // Publish if environment variables are set
-            $this->publishImage($imageName, $publishTag);            
+            if (!$tagOnly) {
+                $this->publishImage($imageName, $publishTag);
+            }
         } catch (Exception $e) {
             throw new CliRuntimeException('CI build failed: ' . $e->getMessage());
         }
@@ -73,6 +94,7 @@ class CI extends AbstractCommand {
     protected function register(Options $options): void {
         $options->registerCommand(self::COMMAND_NAME, 'Build and optionally publish production Docker image from recipe');
         $options->registerOption('publish', 'Tag to apply to the built image and publish to registry', 'p', true, self::COMMAND_NAME);
+        $options->registerOption('tag', 'Tag to apply to the built image without publishing', 't', true, self::COMMAND_NAME);
     }
 
     /**
