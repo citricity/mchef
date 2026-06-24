@@ -2,6 +2,8 @@
 
 namespace App\Tests;
 
+use App\Enums\DebugMode;
+use App\Model\GlobalConfig;
 use App\Model\Recipe;
 use App\Service\ModelJSONDeserializer;
 use PHPUnit\Framework\TestCase;
@@ -206,5 +208,29 @@ final class ModelJSONDeserializerTest extends MchefTestCase {
         $this->assertEquals('https://github.com/gthomas2/moodle-filter_imageopt', $recipe->plugins[1]->repo);
         $this->assertEquals('main', $recipe->plugins[1]->branch);
         $this->assertEquals('https://github.com/upstream/moodle-filter_imageopt', $recipe->plugins[1]->upstream);
+    }
+
+    public function testDeserializeGlobalConfigWithValidEnumValue(): void {
+        $json = '{
+            "debugMode": "verbose"
+        }';
+
+        $deserializer = ModelJSONDeserializer::instance();
+        $config = $deserializer->deserialize($json, GlobalConfig::class);
+
+        $this->assertInstanceOf(GlobalConfig::class, $config);
+        $this->assertSame(DebugMode::VERBOSE, $config->debugMode);
+    }
+
+    public function testDeserializeGlobalConfigWithInvalidEnumValueFallsBackToDefault(): void {
+        $json = '{
+            "debugMode": "not-a-real-mode"
+        }';
+
+        $deserializer = ModelJSONDeserializer::instance();
+        $config = $deserializer->deserialize($json, GlobalConfig::class);
+
+        $this->assertInstanceOf(GlobalConfig::class, $config);
+        $this->assertSame(DebugMode::NONE, $config->debugMode);
     }
 }

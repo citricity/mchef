@@ -4,9 +4,10 @@ namespace App\Traits;
 
 use App\Exceptions\ExecFailed;
 use App\Helpers\OS;
+use App\Traits\DebugModeTrait;
 
 trait ExecTrait {
-    protected bool $verbose = false;
+    use DebugModeTrait;
 
     /**
      * Allows for {{output}} token to interpolate output from cli failure into error message string.
@@ -28,12 +29,13 @@ trait ExecTrait {
         if ($silent) {
             $cmd .= ' 2>&1';
         }
-        if ($this->verbose && !empty($this->cli)) {
-            $this->cli->info($cmd);
-        }
+
+        $this->verboseCmdDebug($cmd);
+
         exec($cmd, $output, $returnVar);
 
         if ($returnVar != 0) {
+            $this->errorCmdDebug($cmd);
             throw new ExecFailed(($errorMsg ? $this->processErrorMsg($errorMsg, $output) : "Exec failed : $cmd"), 0, $cmd);
         }
 
@@ -41,9 +43,7 @@ trait ExecTrait {
     }
 
     protected function execStream(string $cmd, ?string $errorMsg = null): string {
-        if ($this->verbose && !empty($this->cli)) {
-            $this->cli->info($cmd);
-        }
+        $this->verboseCmdDebug($cmd);
         $outputBuffering = ini_get('output_buffering');
         ini_set('output_buffering', 0);
         flush();
@@ -51,6 +51,7 @@ trait ExecTrait {
         if ($returnVar != 0) {
             // Restore output buffering.
             ini_set('output_buffering', $outputBuffering);
+            $this->errorCmdDebug($cmd);
             throw new ExecFailed(($errorMsg ? $this->processErrorMsg($errorMsg, $output) : "Exec failed"), 0, $cmd);
         }
 
@@ -60,9 +61,7 @@ trait ExecTrait {
     }
 
     protected function execDetached(string $cmd): void {
-        if ($this->verbose && !empty($this->cli)) {
-            $this->cli->info($cmd);
-        }
+        $this->verboseCmdDebug($cmd);
         // Execute command in background to detach from PHP process
         // This allows GUI applications to get proper focus
 
@@ -81,9 +80,7 @@ trait ExecTrait {
     }
 
     protected function execPassthru(string $cmd, ?string $errorMsg = null): void {
-        if ($this->verbose && !empty($this->cli)) {
-            $this->cli->info($cmd);
-        }
+        $this->verboseCmdDebug($cmd);
 
         // Do not alter stderr behavior if command already contains stderr redirection.
         // Covers common forms like: 2>&1, 2>file, 2>>file, 2>&2.
@@ -94,7 +91,7 @@ trait ExecTrait {
         $maxCaptureBytes = 131072; // 128 KB
         $cliOutput = '';
 
-        $flushChunkBytes = 4096; // Keep output responsive without 1-byte callback overhead.
+        $flushChunkBytes = 1024; // Keep output responsive without 1-byte callback overhead.
 
         ob_start(function (string $buffer) use (&$cliOutput, $maxCaptureBytes): string {
             $cliOutput .= $buffer;
@@ -113,6 +110,7 @@ trait ExecTrait {
                 ? $this->processErrorMsg($errorMsg, $cliOutput)
                 : "Exec failed";
 
+            $this->errorCmdDebug($cmd);
             throw new ExecFailed($message, 0, $cmd, null, $cliOutput);
         }
     }
@@ -126,9 +124,7 @@ trait ExecTrait {
         $tmparr = explode(' ', $cmd);
         $tmparr[0] = $this->resolveBinary($tmparr[0]);
         $cmd = implode(' ', $tmparr);
-        if ($this->verbose && !empty($this->cli)) {
-            $this->cli->info($cmd);
-        }
+        $this->verboseCmdDebug($cmd);
 
         $descriptorspec = [
             0 => STDIN,   // pass through input
@@ -139,12 +135,14 @@ trait ExecTrait {
         $process = proc_open($cmd, $descriptorspec, $pipes, null, array_merge($_ENV, $env));
 
         if (!is_resource($process)) {
+            $this->errorCmdDebug($cmd);
             throw new ExecFailed("Failed to start process: $cmd", 0, $cmd);
         }
 
         $returnVar = proc_close($process);
 
         if ($returnVar !== 0) {
+            $this->errorCmdDebug($cmd);
             throw new ExecFailed("Exec failed: $cmd (exit $returnVar)", 0, $cmd);
         }
     }

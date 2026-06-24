@@ -8,6 +8,7 @@ use App\Service\TermsService;
 use App\MChefCLI;
 use App\StaticVars;
 use PHPUnit\Framework\MockObject\MockObject;
+use splitbrain\phpcli\Options;
 
 class DisclaimerTest extends \PHPUnit\Framework\TestCase {
     
@@ -133,6 +134,38 @@ class DisclaimerTest extends \PHPUnit\Framework\TestCase {
         $this->assertFalse($result);
         $this->assertFalse($this->termsService->hasAgreedToTerms());
     }
+
+    public function testEnsureTermsAgreementShowsTermsUntilAccepted(): void {
+        $this->mockCli->expects($this->exactly(2))
+            ->method('info')
+            ->with($this->stringContains('MChef is provided "as is"'));
+
+        $this->mockCli->expects($this->exactly(2))
+            ->method('promptYesNo')
+            ->with(
+                $this->stringContains('Do you agree to these terms?'),
+                null,
+                null,
+                'n'
+            )
+            ->willReturnOnConsecutiveCalls(false, true);
+
+        $this->mockCli->expects($this->once())
+            ->method('error')
+            ->with('You must agree to the terms to use MChef.');
+
+        $this->mockCli->expects($this->once())
+            ->method('success')
+            ->with('Thank you for agreeing to the terms.');
+
+        $firstAttempt = $this->termsService->ensureTermsAgreement();
+        $secondAttempt = $this->termsService->ensureTermsAgreement();
+
+        $this->assertFalse($firstAttempt);
+        $this->assertTrue($secondAttempt);
+        $this->assertTrue($this->termsService->hasAgreedToTerms());
+        $this->assertTrue($this->termsService->wereTermsJustAgreed());
+    }
     
     public function testEnsureTermsAgreementWhenAlreadyAgreed(): void {
         $this->termsService->createTermsAgreementForTesting();
@@ -148,9 +181,29 @@ class DisclaimerTest extends \PHPUnit\Framework\TestCase {
     public function testCannotRunCommandsWithoutTermsAgreement(): void {
         // Ensure no terms agreement exists by removing any existing file
         $this->removeExistingTermsFile();
-        
-        // Create a real CLI instance to test actual integration
-        $cli = new MChefCLI(false);
+
+        $mockTermsService = $this->createMock(TermsService::class);
+        $mockTermsService->expects($this->once())
+            ->method('ensureTermsAgreement')
+            ->willReturn(false);
+
+        // Create a testable CLI instance to avoid interactive terms prompts.
+        $cli = new class(false, $mockTermsService) extends MChefCLI {
+            private TermsService $termsService;
+
+            public function __construct(bool $autocatch, TermsService $termsService) {
+                $this->termsService = $termsService;
+                parent::__construct($autocatch);
+            }
+
+            protected function resolveTermsService(): TermsService {
+                return $this->termsService;
+            }
+
+            public function callMain(Options $options): void {
+                $this->main($options);
+            }
+        };
         
         // Create a mock options that represents a command being run without --agree-license
         $mockOptions = $this->createMock(\splitbrain\phpcli\Options::class);
@@ -167,12 +220,8 @@ class DisclaimerTest extends \PHPUnit\Framework\TestCase {
         // Expect TermsNotAgreedException to be thrown when main() is called without terms agreement
         $this->expectException(\App\Exceptions\TermsNotAgreedException::class);
         
-        // Get the main method via reflection to test the protected method
-        $reflection = new \ReflectionClass($cli);
-        $mainMethod = $reflection->getMethod('main');
-        
-        // This should throw TermsNotAgreedException since terms are not agreed and no flag is present
-        $mainMethod->invoke($cli, $mockOptions);
+        // This should throw TermsNotAgreedException since terms are not agreed.
+        $cli->callMain($mockOptions);
     }
     
     public function testCanRunCommandsAfterTermsAgreement(): void {

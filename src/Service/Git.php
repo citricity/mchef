@@ -555,19 +555,29 @@ class Git extends AbstractService {
         mkdir($tempDir);
 
         try {
-            exec("git init --quiet " . escapeshellarg($tempDir));
+            exec("git init --quiet " . escapeshellarg($tempDir) . " 2>/dev/null");
 
-            chdir($tempDir);
+            exec(
+                "git -C " . escapeshellarg($tempDir)
+                . " remote add origin " . escapeshellarg($repositoryUrl)
+                . " 2>/dev/null"
+            );
 
-            exec("git remote add origin " . escapeshellarg($repositoryUrl));
-
-            exec("git fetch --depth=1 --filter=blob:none origin " . escapeshellarg($branchOrTag), $output, $fetchStatus);
+            exec(
+                "git -C " . escapeshellarg($tempDir)
+                . " fetch --quiet --no-progress --depth=1 --filter=blob:none origin " . escapeshellarg($branchOrTag)
+                . " 2>/dev/null",
+                $output,
+                $fetchStatus
+            );
             if ($fetchStatus !== 0) {
                 return false;
             }
 
             exec(
-                "git ls-tree -d --name-only FETCH_HEAD " . escapeshellarg($folderPath),
+                "git -C " . escapeshellarg($tempDir)
+                . " ls-tree -d --name-only FETCH_HEAD " . escapeshellarg($folderPath)
+                . " 2>/dev/null",
                 $treeOutput,
                 $treeStatus
             );

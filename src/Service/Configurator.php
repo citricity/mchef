@@ -8,6 +8,12 @@ use App\Model\RegistryInstance;
 
 class Configurator extends AbstractService {
 
+    private static ?GlobalConfig $config = null;
+
+    private function invalidateCachedMainConfig(): void {
+        static::$config = null;
+    }
+
     final public static function instance(bool $reset = false): Configurator {
         return self::setup_singleton($reset)->initializeConfig();
     }
@@ -120,6 +126,7 @@ class Configurator extends AbstractService {
         $content = implode("\n", $rows);
         $path = $this->getRegistryFilePath();
         file_put_contents($path, $content);
+        $this->invalidateCachedMainConfig();
     }
 
     private function upsertRegistryInstance(string $uuid, string $instanceRecipePath, string $containerPrefix) {
@@ -158,25 +165,168 @@ class Configurator extends AbstractService {
         // We need to now put the uuid into the .mchef folder corresponding to the recipe.
         $mchefPath = dirname($instanceRecipePath).'/.mchef';
         file_put_contents($mchefPath.'/registry_uuid.txt', $uuid);
+       $this->invalidateCachedMainConfig();
         return $uuid;
     }
 
     public function getMainConfig(): GlobalConfig {
+        if (TestingHelpers::isPHPUnit()) {
+            // Always reset config to null.
+            static::$config = null;
+        }
+        if (static::$config !== null) {
+            return static::$config;
+        }
         $configPath = $this->mainConfigPath();
         if (!file_exists($configPath)) {
-            return new GlobalConfig();
+            static::$config = new GlobalConfig();
+            return static::$config;
         }
-        return GlobalConfig::fromJSONFile($configPath);
+        static::$config = GlobalConfig::fromJSONFile($configPath);
+        return static::$config;
     }
 
     public function writeMainConfig(GlobalConfig $config) {
         $config->toJSONFile($this->mainConfigPath());
+        $this->invalidateCachedMainConfig();
     }
 
     public function setMainConfigField(string $field, $value) {
+        $this->invalidateCachedMainConfig();
         $mainConfig = $this->getMainConfig();
-        $mainConfig->$field = $value;
+        $reflection = new \ReflectionClass(GlobalConfig::class);
+
+        if (!$reflection->hasProperty($field)) {
+            throw new \InvalidArgumentException("Invalid config field: $field");
+        }
+
+        $property = $reflection->getProperty($field);
+        $mainConfig->$field = $this->normalizeConfigValueForProperty($property, $value, $field);
         $this->writeMainConfig($mainConfig);
+    }
+
+    private function normalizeConfigValueForProperty(\ReflectionProperty $property, mixed $value, string $field): mixed {
+        $type = $property->getType();
+
+        if ($type === null) {
+            return $value;
+        }
+
+        if ($value === null) {
+            if ($type->allowsNull()) {
+                return null;
+            }
+            throw new \InvalidArgumentException("Config field '$field' does not allow null values");
+        }
+
+        if ($type instanceof \ReflectionNamedType) {
+            return $this->normalizeConfigValueForNamedType($type, $value, $field);
+        }
+
+        if ($type instanceof \ReflectionUnionType) {
+            foreach ($type->getTypes() as $namedType) {
+                if ($namedType instanceof \ReflectionNamedType && $namedType->getName() === 'null') {
+                    continue;
+                }
+                try {
+                    if ($namedType instanceof \ReflectionNamedType) {
+                        return $this->normalizeConfigValueForNamedType($namedType, $value, $field);
+                    }
+                } catch (\InvalidArgumentException $e) {
+                    continue;
+                }
+            }
+            throw new \InvalidArgumentException("Invalid value type for config field '$field'");
+        }
+
+        return $value;
+    }
+
+    private function normalizeConfigValueForNamedType(\ReflectionNamedType $type, mixed $value, string $field): mixed {
+        $typeName = $type->getName();
+
+        if ($type->isBuiltin()) {
+            if ($typeName === 'string') {
+                if (!is_string($value)) {
+                    throw new \InvalidArgumentException("Config field '$field' expects a string");
+                }
+                return $value;
+            }
+            if ($typeName === 'bool') {
+                if (!is_bool($value)) {
+                    throw new \InvalidArgumentException("Config field '$field' expects a boolean");
+                }
+                return $value;
+            }
+            if ($typeName === 'int') {
+                if (!is_int($value)) {
+                    throw new \InvalidArgumentException("Config field '$field' expects an integer");
+                }
+                return $value;
+            }
+            if ($typeName === 'float') {
+                if (!is_float($value) && !is_int($value)) {
+                    throw new \InvalidArgumentException("Config field '$field' expects a float");
+                }
+                return (float) $value;
+            }
+            if ($typeName === 'array') {
+                if (!is_array($value)) {
+                    throw new \InvalidArgumentException("Config field '$field' expects an array");
+                }
+                return $value;
+            }
+
+            return $value;
+        }
+
+        if (!enum_exists($typeName)) {
+            if ($value instanceof $typeName) {
+                return $value;
+            }
+            throw new \InvalidArgumentException("Config field '$field' expects an instance of $typeName");
+        }
+
+        if ($value instanceof $typeName) {
+            return $value;
+        }
+
+        $enumOptions = $this->formatEnumOptions($typeName);
+
+        if (!is_string($value) && !is_int($value)) {
+            throw new \InvalidArgumentException("Config field '$field' expects a valid enum value for $typeName. Allowed values: $enumOptions");
+        }
+
+        if (!is_subclass_of($typeName, \BackedEnum::class)) {
+            throw new \InvalidArgumentException("Config field '$field' enum type $typeName is not a backed enum");
+        }
+
+        $enumValue = $typeName::tryFrom($value);
+        if ($enumValue === null) {
+            throw new \InvalidArgumentException("Invalid enum value for config field '$field': $value. Allowed values: $enumOptions");
+        }
+
+        return $enumValue;
+    }
+
+    private function formatEnumOptions(string $enumType, int $maxOptions = 15): string {
+        $cases = $enumType::cases();
+        $total = count($cases);
+        $visibleCases = array_slice($cases, 0, $maxOptions);
+
+        $labels = array_map(function($case) use ($enumType) {
+            if (is_subclass_of($enumType, \BackedEnum::class)) {
+                return (string)$case->value;
+            }
+            return $case->name;
+        }, $visibleCases);
+
+        $formatted = implode(', ', $labels);
+        if ($total > $maxOptions) {
+            $formatted .= ', ...';
+        }
+
+        return $formatted;
     }
 
     /**

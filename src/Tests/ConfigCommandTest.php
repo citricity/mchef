@@ -63,7 +63,7 @@ class ConfigCommandTest extends MchefTestCase {
 
         $this->cli->expects($this->once())
             ->method('notice')
-            ->with('Default database client has been set.', []);
+            ->with('Config field \'dbClient\' has been set.', []);
 
         $this->configCommand->execute($this->options);
     }
@@ -96,7 +96,7 @@ class ConfigCommandTest extends MchefTestCase {
 
         $this->cli->expects($this->once())
             ->method('notice')
-            ->with('Default database client has been set.', []);
+            ->with('Config field \'dbClient\' has been set.', []);
 
         $this->configCommand->execute($this->options);
     }
@@ -129,7 +129,7 @@ class ConfigCommandTest extends MchefTestCase {
 
         $this->cli->expects($this->once())
             ->method('notice')
-            ->with('Default database client has been set.', []);
+            ->with('Config field \'dbClient\' has been set.', []);
 
         $this->configCommand->execute($this->options);
     }

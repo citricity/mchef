@@ -2,7 +2,6 @@
 
 namespace App\Command;
 
-use App\Service\Configurator;
 use App\Service\ProxyService;
 use App\Traits\ExecTrait;
 use App\Traits\SingletonTrait;
@@ -60,12 +59,12 @@ final class Config extends AbstractCommand {
 
     private function setLang(string $langCode) {
         $this->validateLang($langCode);
-        $this->configuratorService->setMainConfigField('lang', $langCode);
+        $this->setConfigField('lang', $langCode);
         $this->cli->notice("Default language code has been set. Note - will only affect new installs");
     }
 
     private function setPassword(string $password) {
-        $this->configuratorService->setMainConfigField('adminPassword', $password);
+        $this->setConfigField('adminPassword', $password);
         $this->cli->notice("Default admin password has been set. Note - will only affect new installs");
     }
 
@@ -73,9 +72,22 @@ final class Config extends AbstractCommand {
         if ($proxy) {
             $this->proxyService->warnIfPort80BlockedForProxy(true);
         }
-        $this->configuratorService->setMainConfigField('useProxy', $proxy);
+        $this->setConfigField('useProxy', $proxy);
         $this->cli->notice("Local reverse proxy settings changed.\n".
             "NOTE: You will need to stop all your mchef instances and re-up them to use the new settings");
+    }
+
+    private function setConfigField(string $field, mixed $value) {
+        try {
+            $this->configuratorService->setMainConfigField($field, $value);
+            $this->cli->notice("Config field '$field' has been set.");
+        } catch (\InvalidArgumentException $e) {
+            throw new \App\Exceptions\CliRuntimeException(
+                 "Failed to set config field '$field': " . $e->getMessage(),
+                 0,
+                 $e
+             );
+        }
     }
 
     public function execute(Options $options): void {
@@ -109,49 +121,50 @@ final class Config extends AbstractCommand {
         } else if ($options->getOpt('get-config-dir')) {
             $configDir = $this->configuratorService->configDir();
             $this->cli->notice("Config directory: $configDir");
+        } else if ($options->getOpt('debugMode')) {
+            $mode = $options->getOpt('debugMode');
+            $this->setConfigField('debugMode', $mode);
+            $this->cli->notice("Debug mode has been set to $mode.");
         } else {
-            $this->cli->error('Invalid config option');
+            $this->cli->error('No valid options provided. Use --help for usage information.');
         }
     }
 
     private function setDbClient(string $client) {
-        $this->configuratorService->setMainConfigField('dbClient', $client);
-        $this->cli->notice("Default database client has been set.");
+        $this->setConfigField('dbClient', $client);
     }
 
     private function setDbClientMysql(string $client) {
         if (!in_array($client, self::DB_CLIENT_MYSQL_OPTIONS)) {
             throw new \InvalidArgumentException("Invalid MySQL client option");
         }
-        $this->configuratorService->setMainConfigField('dbClientMysql', $client);
-        $this->cli->notice("Default MySQL client has been set.");
+        $this->setConfigField('dbClientMysql', $client);
     }
 
     private function setDbClientPgsql(string $client) {
         if (!in_array($client, self::DB_CLIENT_PGSQL_OPTIONS)) {
             throw new \InvalidArgumentException("Invalid PostgreSQL client option");
         }
-        $this->configuratorService->setMainConfigField('dbClientPgsql', $client);
-        $this->cli->notice("Default PostgreSQL client has been set.");
+        $this->setConfigField('dbClientPgsql', $client);
     }
 
     private function setRegistryUrl(string $url) {
-        $this->configuratorService->setMainConfigField('registryUrl', $url);
+        $this->setConfigField('registryUrl', $url);
         $this->cli->notice("Docker image registry URL has been set.");
     }
 
     private function setRegistryUsername(string $username) {
-        $this->configuratorService->setMainConfigField('registryUsername', $username);
+        $this->setConfigField('registryUsername', $username);
         $this->cli->notice("Docker image registry username has been set.");
     }
 
     private function setRegistryPassword(string $password) {
-        $this->configuratorService->setMainConfigField('registryPassword', $password);
+        $this->setConfigField('registryPassword', $password);
         $this->cli->notice("Docker image registry password has been set.");
     }
 
     private function setRegistryToken(string $token) {
-        $this->configuratorService->setMainConfigField('registryToken', $token);
+        $this->setConfigField('registryToken', $token);
         $this->cli->notice("Docker image registry token has been set.");
     }
 
@@ -168,5 +181,6 @@ final class Config extends AbstractCommand {
         $options->registerOption('registryPassword', 'Set docker image registry password', null, 'PASSWORD', self::COMMAND_NAME);
         $options->registerOption('registryToken', 'Set docker image registry token', null, 'TOKEN', self::COMMAND_NAME);
         $options->registerOption('get-config-dir', 'Get the path to the config directory', null, false, self::COMMAND_NAME);
+        $options->registerOption('debugMode', 'Set debug mode for mchef (none, error, warning, verbose)', null, 'MODE', self::COMMAND_NAME);
     }
 }

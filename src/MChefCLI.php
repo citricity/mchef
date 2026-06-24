@@ -3,12 +3,17 @@
 namespace App;
 
 use App\Command\Config;
+use App\Enums\DebugMode;
+use App\Service\TermsService;
 use splitbrain\phpcli\CLI;
 use splitbrain\phpcli\Options;
 use App\Helpers\OS;
 use App\Helpers\SplitbrainWrapper;
+use App\Traits\DebugModeTrait;
 
 class MChefCLI extends CLI {
+    use DebugModeTrait;
+
     static $version = '1.1.21'; // This gets replaced during phar build process.
 
     /**
@@ -23,11 +28,6 @@ class MChefCLI extends CLI {
      * @var \App\Service\Docker;
      */
     public $dockerService;
-
-    /**
-     * @var bool $verbose - verbose mode
-     */
-    public bool $verbose = false;
 
     public function __construct($autocatch = true) {
         require_once(__DIR__ . '/lib.php');
@@ -241,7 +241,7 @@ class MChefCLI extends CLI {
 
     protected function main(Options $options) {
         // Check terms agreement before any operation
-        $termsService = \App\Service\TermsService::instance();
+        $termsService = $this->resolveTermsService();
 
         // Only allow specific operations (like `config --get-config-dir`) to bypass terms agreement
         $skipTerms = false;
@@ -336,6 +336,14 @@ class MChefCLI extends CLI {
     }
 
     /**
+     * Resolve terms service dependency.
+     * Extracted for testability so tests can override with a mock service.
+     */
+    protected function resolveTermsService(): TermsService {
+        return TermsService::instance();
+    }
+
+    /**
      * Prompt user yes no, returning input OR returning callable depending on $onYes or $onNo.
      *
      * @param string $msg
@@ -405,7 +413,7 @@ class MChefCLI extends CLI {
     }
 
     public function debug($message, array $context = array()) {
-        if (!$this->verbose) {
+        if ($this->getDebugMode() !== DebugMode::VERBOSE) {
             return;
         }
         $this->log('debug', $message, $context);

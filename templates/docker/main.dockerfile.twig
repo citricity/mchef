@@ -22,6 +22,7 @@ ENV MOODLE_DATA={{ moodleData ?? '/var/www/moodledata' }}
 ENV BEHAT_DATA="$MOODLE_DATA/behatdata"
 ENV BEHAT_HOST="{{ behatHost }}"
 ENV BEHAT_WWWROOT="{{ behatWwwRoot }}"
+ENV BEHAT_DUMP_PATH="$PUBLIC_PATH/behat_dump"
 {% endif %}
 
 {% if (developer) %}
