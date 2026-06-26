@@ -78,7 +78,7 @@ class CICommandTest extends MchefTestCase {
         $this->ciCommand->execute($this->options);
     }
 
-    public function testExecuteFailsWithoutPublishTag(): void {
+    public function testExecuteFailsWithoutPublishOrTag(): void {
         $this->expectException(CliRuntimeException::class);
         $this->expectExceptionMessage('Publish tag or tag only is required');
 
