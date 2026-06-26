@@ -14,7 +14,7 @@ use App\Traits\DebugModeTrait;
 class MChefCLI extends CLI {
     use DebugModeTrait;
 
-    static $version = '1.1.21'; // This gets replaced during phar build process.
+    static $version = '1.2.2'; // This gets replaced during phar build process.
 
     /**
      * @var \App\Service\Main;

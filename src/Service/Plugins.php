@@ -372,14 +372,12 @@ class Plugins extends AbstractService {
                         if (!file_exists(OS::path($targetPath.'/version.php'))) {                                                  
                             $tmpDir = sys_get_temp_dir().'/'.uniqid('', true);
                             $this->gitService->cloneGitRepository($recipePlugin->repo, $recipePlugin->branch, $tmpDir, $recipePlugin->upstream, $shallowClone);
-                            $versionFiles = $this->findMoodleVersionFiles($tmpDir);
-                            $versionFile = $versionFiles[0] ?? null;
                 
                             $this->cli->info('Moving plugin from temp folder to ' . $targetPath);
-                            if (!file_exists($targetPath) && !OS::isWindows()) {
-                                mkdir($targetPath, 0755, true);
+                            if (is_dir($targetPath)) {
+                                $this->fileService->deleteDir($targetPath);
                             }
-                            rename($tmpDir, $targetPath);
+                            $this->fileService->moveDirectory($tmpDir, $targetPath);
                         } else {
                             $this->cli->info('Skipping retrieval of '.$pluginName.' as already present at '.$targetPath);
                         }

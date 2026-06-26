@@ -247,6 +247,38 @@ class File extends AbstractService {
         }
     }
 
+    /**
+     * Move a directory from source to target.
+     *
+     * Attempts a fast rename first, then falls back to copy+delete for
+     * cross-device moves.
+     */
+    public function moveDirectory(string $sourceDir, string $targetDir): void {
+        if (!is_dir($sourceDir)) {
+            throw new Exception('Source directory does not exist: ' . $sourceDir);
+        }
+
+        $targetParent = dirname($targetDir);
+        if (!is_dir($targetParent)) {
+            if (!mkdir($targetParent, 0755, true)) {
+                throw new Exception('Failed to create directory: ' . $targetParent . ' - check permissions');
+            }
+        }
+
+        if (@rename($sourceDir, $targetDir)) {
+            return;
+        }
+
+        if (!is_dir($targetDir)) {
+            if (!mkdir($targetDir, 0755, true)) {
+                throw new Exception('Failed to create directory: ' . $targetDir . ' - check permissions');
+            }
+        }
+
+        $this->copyFilesFromDirToDir($sourceDir, $targetDir);
+        $this->deleteDir($sourceDir);
+    }
+
     public function tempDir() {
         $tempDir = sys_get_temp_dir().DIRECTORY_SEPARATOR.uniqid(sha1(microtime()), true);
         mkdir($tempDir);
