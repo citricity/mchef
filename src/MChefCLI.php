@@ -212,6 +212,25 @@ class MChefCLI extends CLI {
         $this->info($welcomeLine);
     }
 
+    public function resolveRecipePath(string $recipeFileName): string {
+
+        // Resolve recipe path:
+        // - If an absolute path is provided, use it directly.
+        // - Otherwise, look for the recipe relative to the current working directory.
+        $cwd = getcwd();
+        $isAbsolute = !OS::isWindows() ?
+            (strlen($recipeFileName) > 0 && ($recipeFileName[0] === '/' || $recipeFileName[0] === '\\')) // Unix or UNC-style
+            : preg_match('/^[A-Za-z]:[\\\\\\/]/', $recipeFileName) === 1; // Windows drive letter
+        if ($isAbsolute) {
+            $recipePath = $recipeFileName;
+        } else {
+            // See if recipe is local to cwd.
+            $recipePath = OS::path($cwd . '/' . $recipeFileName);
+        }
+        
+        return $recipePath;
+    }
+
     public function getRecipePathFromArgs(?Options $options = null): ?string {
         $options = $options ?? $this->options;
         $args = $options->getArgs();
@@ -220,23 +239,9 @@ class MChefCLI extends CLI {
             return null;
         }
         
-        $recipe = $args[0];
+        $recipeFileName = $args[0];
 
-        // Resolve recipe path:
-        // - If an absolute path is provided, use it directly.
-        // - Otherwise, look for the recipe relative to the current working directory.
-        $cwd = getcwd();
-        $isAbsolute = !OS::isWindows() ?
-            (strlen($recipe) > 0 && ($recipe[0] === '/' || $recipe[0] === '\\')) // Unix or UNC-style
-            : preg_match('/^[A-Za-z]:[\\\\\\/]/', $recipe) === 1; // Windows drive letter
-        if ($isAbsolute) {
-            $recipePath = $recipe;
-        } else {
-            // See if recipe is local to cwd.
-            $recipePath = OS::path($cwd . '/' . $recipe);
-        }
-        
-        return $recipePath;
+        return $this->resolveRecipePath($recipeFileName);
     }
 
     protected function main(Options $options) {

@@ -295,7 +295,7 @@ class Main extends AbstractService {
     }
 
     private function parseRecipe(string $recipeFilePath): Recipe {
-        $recipe = $this->recipeService->parse($recipeFilePath);
+        $recipe = $this->recipeService->parseFile($recipeFilePath);
         $this->cli->success('Recipe successfully parsed.');
         return $recipe;
     }

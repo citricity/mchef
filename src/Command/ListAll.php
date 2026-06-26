@@ -39,7 +39,7 @@ final class ListAll extends AbstractCommand {
                 $this->cli->warning('⚠️ Recipe missing '.$instance->recipePath);
             }
 
-            $recipe = $this->recipeService->parse($instance->recipePath);
+            $recipe = $this->recipeService->parseFile($instance->recipePath);
             $moodleContainerName = $this->mainService->getDockerMoodleContainerName(null, $recipe);
 
             try {

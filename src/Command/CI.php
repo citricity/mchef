@@ -6,6 +6,7 @@ use App\Exceptions\CliRuntimeException;
 use App\Model\Recipe;
 use App\Service\Docker;
 use App\Service\Environment;
+use App\Service\RecipeService;
 use App\StaticVars;
 use App\Traits\SingletonTrait;
 use splitbrain\phpcli\Options;
@@ -18,14 +19,10 @@ class CI extends AbstractCommand {
     // Service dependencies.
     protected Docker $dockerService;
     protected Environment $environmentService;
+    protected RecipeService $recipeService;
 
     // Constants.
     const COMMAND_NAME = 'ci';
-
-    public function __construct() {
-        $this->dockerService = Docker::instance();
-        $this->environmentService = Environment::instance();
-    }
 
     final public static function instance(): CI {
         return self::setup_singleton();
@@ -34,37 +31,103 @@ class CI extends AbstractCommand {
     public function execute(Options $options): void {
         $this->cli = StaticVars::$cli;
         $args = $options->getArgs();
-        
-        // Validate recipe argument
+
+        // Validate recipe arguments.
         if (empty($args) || empty($args[0])) {
-            throw new CliRuntimeException('Recipe file path is required', 0, null, [
-                'Usage: mchef ci <recipe-file> --publish=<tag>',
-                'Example: mchef ci recipe.json --publish=v1.5.0'
+            throw new CliRuntimeException('Recipe file path(s) required', 0, null, [
+                'Usage: mchef ci <recipe-file[s]> --publish=<tag>',
+                'Example: mchef ci recipe.json overrides.json --publish=v1.5.0',
+                'Usage (tag only): mchef ci --tag=<tag> <recipe-file[s]>',
+                'Example (tag only): mchef ci --tag=v1.5.0 recipe.json overrides.json'
             ]);
         }
-
-        $recipePath = $this->cli->getRecipePathFromArgs($options);
-        if (!$recipePath || !file_exists($recipePath)) {
-            throw new CliRuntimeException('Recipe file does not exist: ' . $recipePath);
+        foreach ($args as $arg) {
+            if (strpos($arg, '--') === 0) {
+                throw new CliRuntimeException('Invalid argument: ' . $arg, 0, null, [
+                    'Usage: mchef ci <recipe-file[s]> --publish=<tag>',
+                    'Example: mchef ci recipe.json overrides.json --publish=v1.5.0',
+                    'Usage (tag only): mchef ci --tag=<tag> <recipe-file[s]>',
+                    'Example (tag only): mchef ci --tag=v1.5.0 recipe.json overrides.json'
+                ]);
+            }
         }
 
+        $recipePaths = [];
+        foreach ($args as $arg) {
+            $recipePath = $this->cli->resolveRecipePath($arg);
+            if (!$recipePath || !file_exists($recipePath)) {
+                throw new CliRuntimeException('Recipe file does not exist: ' . $recipePath);
+            }
+            $recipePaths[] = $recipePath;
+        }
+
+        // Build recipe json object from all recipe files (base + overrides).
+        $recipeJsonAssoc = [];
+        foreach ($recipePaths as $recipePath) {
+            $recipeContent = file_get_contents($recipePath);
+            if ($recipeContent === false) {
+                throw new CliRuntimeException('Failed to read recipe file: ' . $recipePath);
+            }
+
+            $recipeDataAssoc = null;
+            try {
+                $recipeDataAssoc = json_decode($recipeContent, true, 512, JSON_THROW_ON_ERROR);
+            } catch (\JsonException $e) {
+                throw new CliRuntimeException('Failed to parse recipe JSON for ' . $recipePath . ': ' . $e->getMessage());
+            }
+            
+            if ($recipeDataAssoc === null) {
+                throw new CliRuntimeException('Failed to parse recipe JSON for ' . $recipePath . ': Decoded data is null');
+            }
+            if (!is_array($recipeDataAssoc)) {
+                throw new CliRuntimeException('Failed to parse recipe JSON for ' . $recipePath . ': root must be a JSON object');
+            }
+            if ($recipeDataAssoc !== [] && array_is_list($recipeDataAssoc)) {
+                throw new CliRuntimeException('Failed to parse recipe JSON for ' . $recipePath . ': root must be a JSON object, not an array');
+            }
+  
+            // Merge with existing recipe data (overrides).
+            $recipeJsonAssoc = array_replace_recursive($recipeJsonAssoc, $recipeDataAssoc);
+        }
+
+        $recipe = $this->recipeService->parse($recipeJsonAssoc, implode(', ', $recipePaths));
+        $recipe->setRecipePath($recipePaths[0]);
+
+        $tag = $options->getOpt('tag');
         $publishTag = $options->getOpt('publish');
-        if (empty($publishTag)) {
-            throw new CliRuntimeException('Publish tag is required', 0, null, [
-                'Usage: mchef ci --publish=<tag> <recipe-file>',
-                'Example: mchef ci --publish=v1.5.0 recipe.json'
+        if (!empty($tag) && !empty($publishTag)) {
+            throw new CliRuntimeException('Cannot use both --tag and --publish options together', 0, null, [
+                'Usage: mchef ci <recipe-file[s]> --publish=<tag>',
+                'Example: mchef ci recipe.json overrides.json --publish=v1.5.0',
+                'Usage (tag only): mchef ci --tag=<tag> <recipe-file[s]>',
+                'Example (tag only): mchef ci --tag=v1.5.0 recipe.json overrides.json'
             ]);
+        }
+        if (empty($publishTag) && empty($tag)) {
+            throw new CliRuntimeException('Publish tag or tag only is required', 0, null, [
+                'Usage: mchef ci --publish=<tag> <recipe-file[s]>',
+                'Example: mchef ci --publish=v1.5.0 recipe.json overrides.json',
+                'Usage (tag only): mchef ci --tag=<tag> <recipe-file[s]>',
+                'Example (tag only): mchef ci --tag=v1.5.0 recipe.json overrides.json'
+            ]);
+        }
+
+        $tagOnly = false;
+        if (empty($publishTag)) {
+            $publishTag = $tag;
+            $tagOnly = true;
         }
 
         try {
             // Load and prepare recipe for CI
-            $recipe = $this->loadAndPrepareRecipe($recipePath);
-            
+            $recipe = $this->prepareRecipe($recipe);
             // Build Docker image
             $imageName = $this->buildImage($recipe, $publishTag);
             
             // Publish if environment variables are set
-            $this->publishImage($imageName, $publishTag);            
+            if (!$tagOnly) {
+                $this->publishImage($imageName, $publishTag);
+            }
         } catch (Exception $e) {
             throw new CliRuntimeException('CI build failed: ' . $e->getMessage());
         }
@@ -73,17 +136,14 @@ class CI extends AbstractCommand {
     protected function register(Options $options): void {
         $options->registerCommand(self::COMMAND_NAME, 'Build and optionally publish production Docker image from recipe');
         $options->registerOption('publish', 'Tag to apply to the built image and publish to registry', 'p', true, self::COMMAND_NAME);
+        $options->registerOption('tag', 'Tag to apply to the built image without publishing', 't', true, self::COMMAND_NAME);
     }
 
     /**
      * Load recipe and override fields for CI/production build
      */
-    private function loadAndPrepareRecipe(string $recipePath): Recipe {
-        $this->cli->info("Loading recipe: {$recipePath}");
-        
-        // Load recipe using Main service
-        $recipe = $this->mainService->getRecipe($recipePath);
-        
+    private function prepareRecipe(Recipe $recipe): Recipe {
+    
         // Override fields for CI/production build
         $recipe->mountPlugins = false;
         $recipe->developer = false;

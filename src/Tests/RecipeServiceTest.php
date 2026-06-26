@@ -27,7 +27,7 @@ final class RecipeServiceTest extends MchefTestCase {
         file_put_contents($filePath, $this->validJson);
 
         $RecipeService = RecipeService::instance();
-        $recipe = $RecipeService->parse($filePath);
+        $recipe = $RecipeService->parseFile($filePath);
 
         $this->assertInstanceOf(Recipe::class, $recipe);
         $this->assertEquals('v4.1.0', $recipe->moodleTag);
@@ -46,8 +46,8 @@ final class RecipeServiceTest extends MchefTestCase {
         $RecipeService = RecipeService::instance();
 
         $this->expectException(Exception::class);
-        $this->expectExceptionMessage('Failed to decode recipe JSON');
-        $RecipeService->parse($filePath);
+        $this->expectExceptionMessage('Failed to deserialize recipe');
+        $RecipeService->parseFile($filePath);
 
         unlink($filePath);
     }
@@ -58,7 +58,7 @@ final class RecipeServiceTest extends MchefTestCase {
 
         $this->expectException(Exception::class);
         $this->expectExceptionMessage('Recipe file does not exist');
-        $RecipeService->parse($filePath);
+        $RecipeService->parseFile($filePath);
     }
 
     public function testParseMissingRequiredProperty(): void {
@@ -74,8 +74,8 @@ final class RecipeServiceTest extends MchefTestCase {
         $RecipeService = RecipeService::instance();
 
         $this->expectException(Exception::class);
-        $this->expectExceptionMessage('Failed to decode recipe JSON');
-        $RecipeService->parse($filePath);
+        $this->expectExceptionMessage('Failed to deserialize recipe');
+        $RecipeService->parseFile($filePath);
 
         unlink($filePath);
     }
@@ -95,7 +95,7 @@ final class RecipeServiceTest extends MchefTestCase {
 //
     //    $this->expectException(Exception::class);
     //    $this->expectExceptionMessage('Unsupported php version');
-    //    $RecipeService->parse($filePath);
+    //    $RecipeService->parseFile($filePath);
 //
     //    unlink($filePath);
     //}
@@ -115,7 +115,7 @@ final class RecipeServiceTest extends MchefTestCase {
         $filePath = tempnam(sys_get_temp_dir(), 'recipe_');
         file_put_contents($filePath, $json);
 
-        $recipe = $RecipeService->parse($filePath);
+        $recipe = $RecipeService->parseFile($filePath);
 
         $this->assertEquals('http://moodle-image-opt.test', $recipe->wwwRoot);
         $this->assertEquals('moodle-image-opt.test.behat', $recipe->behatHost);
