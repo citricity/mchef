@@ -17,7 +17,6 @@
 namespace App\Service;
 
 use splitbrain\phpcli\Exception;
-use stdClass;
 use App\Model\Recipe;
 use App\StaticVars;
 
@@ -31,21 +30,41 @@ class RecipeService extends AbstractService {
         return self::setup_singleton();
     }
 
-    public function parse(string $filePath): Recipe {
+    public function parseFile(string $filePath): Recipe {
         if (!file_exists($filePath)) {
             throw new Exception('Recipe file does not exist - ' . $filePath);
         }
         $contents = file_get_contents($filePath);
+        if ($contents === false) {
+            throw new Exception('Failed to read recipe file - ' . $filePath);
+        }
+        return $this->parse($contents, $filePath);
+    }
 
+    public function parse(string|array|object $contents, string $recipeIdent): Recipe {
+        $recipe = null;
         try {
-            /** @var Recipe $recipe */
-            $recipe = $this->deserializerService->deserialize($contents, Recipe::class);
+            if (is_string($contents)) {
+                /** @var Recipe $recipe */
+                $recipe = $this->deserializerService->deserialize($contents, Recipe::class);
+            } else if (is_array($contents)) {
+                $contents = (object)$contents;
+                /** @var Recipe $recipe */
+                $recipe = $this->deserializerService->deserializeData($contents, Recipe::class);
+            } else if (is_object($contents)) {
+                /** @var Recipe $recipe */
+                $recipe = $this->deserializerService->deserializeData($contents, Recipe::class);
+            }
         } catch (\Exception $e) {
-            throw new Exception('Failed to decode recipe JSON. Recipe: ' . $filePath, 0, $e);
+            throw new Exception('Failed to deserialize recipe. Recipe: ' . $recipeIdent, 0, $e);
+        }
+
+        if (!$recipe) {
+            throw new Exception('Failed to deserialize recipe. Recipe: ' . $recipeIdent);
         }
 
         // Handle restoreStructure URL if it's a string
-        $this->handleRestoreStructureUrl($recipe, $filePath);
+        $this->handleRestoreStructureUrl($recipe);
 
         // If adminPassword is not set in recipe, use global config value if available
         if (empty($recipe->adminPassword)) {
@@ -56,10 +75,13 @@ class RecipeService extends AbstractService {
         }
 
         // Validate required properties
-        $this->validateRecipe($recipe, $filePath);
+        $this->validateRecipe($recipe);
 
         $this->setDefaults($recipe);
-        $recipe->setRecipePath($filePath);
+
+        if (file_exists($recipeIdent)) {
+            $recipe->setRecipePath($recipeIdent);
+        }
 
         return $recipe;
     }
@@ -67,7 +89,7 @@ class RecipeService extends AbstractService {
     /**
      * Handle restoreStructure URL - if restoreStructure is a string URL, download and parse it
      */
-    private function handleRestoreStructureUrl(Recipe $recipe, string $filePath): void {
+    private function handleRestoreStructureUrl(Recipe $recipe): void {
         // Check if restoreStructure is a string (URL)
         if (is_string($recipe->restoreStructure)) {
             $restoreStructureUrl = $recipe->restoreStructure;
@@ -120,7 +142,7 @@ class RecipeService extends AbstractService {
         return filter_var($str, FILTER_VALIDATE_URL) !== false;
     }
 
-    private function validateRecipe(Recipe $recipe, string $filePath) {
+    private function validateRecipe(Recipe $recipe) {
         // Validate required properties - these are already validated by the constructor
         // but we can add additional business logic validation here
 
@@ -151,6 +173,13 @@ class RecipeService extends AbstractService {
     }
 
     private function setDefaults(Recipe $recipe) {
+        // Try to set admin password from global config if not set in recipe.
+        if (empty($recipe->adminPassword)) {
+            $globalConfig = $this->configuratorService->getMainConfig();
+            if (!empty($globalConfig->adminPassword)) {
+                $recipe->adminPassword = $globalConfig->adminPassword;
+            }
+        }
 
         // Setup port and wwwRoot.
         $recipe->port = $recipe->port ?? 80;
