@@ -78,6 +78,30 @@ To run the example recipe use:
 mchef example-mrecipe.json
 ```
 
+## CI Build Command
+
+The `ci` command builds a production-ready image from one or more recipe files.
+
+- Base + overrides are merged left-to-right.
+- Later files override earlier files.
+- Merge behavior is recursive (`array_replace_recursive`), so arrays use last-file-wins semantics.
+
+Examples:
+
+```sh
+# Build and publish (if registry env vars/config are set)
+mchef ci recipe.json overrides.json --publish=v1.5.0
+
+# Build only (never publish)
+mchef ci recipe.json overrides.json --tag=latest
+```
+
+Notes:
+
+- You must choose one: `--publish` or `--tag`.
+- `--tag` mode always suppresses publishing.
+- The final image name is printed as `Target image: ...` in CI output.
+
 Search in "/src/Model/Recipe.php" for all the possible ingredients of your recipe.
 Enjoy cooking.
 

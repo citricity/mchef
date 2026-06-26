@@ -212,7 +212,7 @@ class MChefCLI extends CLI {
         $this->info($welcomeLine);
     }
 
-    public function resolveRecipePath(string $recipeFileName) {
+    public function resolveRecipePath(string $recipeFileName): string {
 
         // Resolve recipe path:
         // - If an absolute path is provided, use it directly.

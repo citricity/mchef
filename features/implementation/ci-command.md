@@ -17,10 +17,11 @@ The CI command has been successfully implemented as specified in the requirement
 ### 2. CI Command
 
 - **File**: `src/Command/CI.php`
-- **Command**: `mchef ci <recipe-file> --publish=<tag>`
+- **Command**: `mchef ci <recipe-file[s]> --publish=<tag>` or `mchef ci <recipe-file[s]> --tag=<tag>`
 - **Features**:
-  - Validates recipe file existence
-  - Requires publish tag parameter
+  - Validates one or more recipe files
+  - Supports base + override merge (left-to-right)
+  - Requires exactly one tag mode (`--publish` or `--tag`)
   - Overrides development settings for production builds
   - Graceful error handling with `CliRuntimeException`
 
@@ -71,8 +72,8 @@ The CI command supports the following environment variables for registry publish
 ### Basic Build (No Publishing)
 
 ```bash
-# Missing registry credentials - builds locally only
-mchef ci recipe.json --publish=v1.5.0
+# Explicit local-only build
+mchef ci recipe.json server.json --tag=v1.5.0
 ```
 
 ### Build and Publish to Docker Hub
@@ -82,7 +83,7 @@ export MCHEF_REGISTRY_URL="https://docker.io"
 export MCHEF_REGISTRY_USERNAME="myusername"
 export MCHEF_REGISTRY_PASSWORD="mypassword"
 
-mchef ci recipe.json --publish=v1.5.0
+mchef ci recipe.json server.json --publish=v1.5.0
 ```
 
 ### Build and Publish to GitHub Container Registry
@@ -92,7 +93,7 @@ export MCHEF_REGISTRY_URL="https://ghcr.io"
 export MCHEF_REGISTRY_USERNAME="github-username"
 export MCHEF_REGISTRY_TOKEN="ghp_xxxxxxxxxxxx"
 
-mchef ci recipe.json --publish=v1.5.0
+mchef ci recipe.json server.json --publish=v1.5.0
 ```
 
 ## Image Naming Strategy
@@ -148,7 +149,7 @@ mchef ci recipe.json --publish=v1.5.0
     MCHEF_REGISTRY_URL: ghcr.io
     MCHEF_REGISTRY_USERNAME: ${{ github.actor }}
     MCHEF_REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  run: mchef ci recipe.json --publish=${{ github.ref_name }}
+  run: mchef ci recipe.json production.json --publish=${{ github.ref_name }}
 ```
 
 #### GitLab CI
@@ -160,7 +161,7 @@ build:
     MCHEF_REGISTRY_USERNAME: $CI_REGISTRY_USER
     MCHEF_REGISTRY_PASSWORD: $CI_REGISTRY_PASSWORD
   script:
-    - mchef ci recipe.json --publish=$CI_COMMIT_TAG
+    - mchef ci recipe.json production.json --publish=$CI_COMMIT_TAG
 ```
 
 ## Architecture Benefits

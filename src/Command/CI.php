@@ -62,35 +62,36 @@ class CI extends AbstractCommand {
         }
 
         // Build recipe json object from all recipe files (base + overrides).
-        $recipeJsonAsoc = [];
+        $recipeJsonAssoc = [];
         foreach ($recipePaths as $recipePath) {
             $recipeContent = file_get_contents($recipePath);
             if ($recipeContent === false) {
                 throw new CliRuntimeException('Failed to read recipe file: ' . $recipePath);
             }
 
-            $recipeDataAsoc = null;
+            $recipeDataAssoc = null;
             try {
-                $recipeDataAsoc = json_decode($recipeContent, true, 512, JSON_THROW_ON_ERROR);
+                $recipeDataAssoc = json_decode($recipeContent, true, 512, JSON_THROW_ON_ERROR);
             } catch (\JsonException $e) {
                 throw new CliRuntimeException('Failed to parse recipe JSON for ' . $recipePath . ': ' . $e->getMessage());
             }
             
-            if ($recipeDataAsoc === null) {
+            if ($recipeDataAssoc === null) {
                 throw new CliRuntimeException('Failed to parse recipe JSON for ' . $recipePath . ': Decoded data is null');
             }
-            if (!is_array($recipeDataAsoc)) {
+            if (!is_array($recipeDataAssoc)) {
                 throw new CliRuntimeException('Failed to parse recipe JSON for ' . $recipePath . ': root must be a JSON object');
             }
-            if ($recipeDataAsoc !== [] && array_is_list($recipeDataAsoc)) {
+            if ($recipeDataAssoc !== [] && array_is_list($recipeDataAssoc)) {
                 throw new CliRuntimeException('Failed to parse recipe JSON for ' . $recipePath . ': root must be a JSON object, not an array');
             }
   
             // Merge with existing recipe data (overrides).
-            $recipeJsonAsoc = array_replace_recursive($recipeJsonAsoc, $recipeDataAsoc);
+            $recipeJsonAssoc = array_replace_recursive($recipeJsonAssoc, $recipeDataAssoc);
         }
 
-        $recipe = $this->recipeService->parse($recipeJsonAsoc, implode(', ', $recipePaths));
+        $recipe = $this->recipeService->parse($recipeJsonAssoc, implode(', ', $recipePaths));
+        $recipe->setRecipePath($recipePaths[0]);
 
         $tag = $options->getOpt('tag');
         $publishTag = $options->getOpt('publish');

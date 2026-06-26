@@ -32,11 +32,11 @@ class RecipeService extends AbstractService {
 
     public function parseFile(string $filePath): Recipe {
         if (!file_exists($filePath)) {
-            throw new Exception('Recipe file does not exist - ' . $filePath);
+            throw new Exception('Recipe file does not exist: ' . $filePath);
         }
         $contents = file_get_contents($filePath);
         if ($contents === false) {
-            throw new Exception('Failed to read recipe file - ' . $filePath);
+            throw new Exception('Failed to read recipe file: ' . $filePath);
         }
         return $this->parse($contents, $filePath);
     }
@@ -65,14 +65,6 @@ class RecipeService extends AbstractService {
 
         // Handle restoreStructure URL if it's a string
         $this->handleRestoreStructureUrl($recipe);
-
-        // If adminPassword is not set in recipe, use global config value if available
-        if (empty($recipe->adminPassword)) {
-            $globalConfig = $this->configuratorService->getMainConfig();
-            if (!empty($globalConfig->adminPassword)) {
-                $recipe->adminPassword = $globalConfig->adminPassword;
-            }
-        }
 
         // Validate required properties
         $this->validateRecipe($recipe);
@@ -184,8 +176,7 @@ class RecipeService extends AbstractService {
         // Setup port and wwwRoot.
         $recipe->port = $recipe->port ?? 80;
         $portStr = $this->getPortString($recipe);
-        $recipe->wwwRoot = $recipe->hostProtocol . '://' . $recipe->host . ($portStr);
-
+        $recipe->wwwRoot = $recipe->wwwRoot ?? $recipe->hostProtocol . '://' . $recipe->host . ($portStr);
 
         // Setup developer field defaults.
         $devFields = ['includePhpUnit', 'includeBehat', 'includeXdebug'];
