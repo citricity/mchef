@@ -491,6 +491,9 @@ class Docker extends AbstractService {
      * @throws Exception If build fails
      */
     public function buildImageWithCompose(string $composeFile, DockerData $dockerData, string $imageName, string $projectDir, ?bool $usesSsh = false): void {
+        $composeFile = realpath($composeFile) ?: $composeFile;
+        $projectDir = realpath($projectDir) ?: $projectDir;
+
         $composeFileEscaped = escapeshellarg($composeFile);
         $projectDirEscaped = escapeshellarg($projectDir);
         

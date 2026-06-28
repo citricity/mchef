@@ -626,18 +626,18 @@ class Main extends AbstractService {
         StaticVars::$recipe = $recipe;
 
         // Generate temporary project directory for build
-        $buildDir = sys_get_temp_dir() . '/ci-build-' . uniqid();
-        $dockerDir = $buildDir . '/docker';
-        StaticVars::$ciDockerPath = $dockerDir;
+        $tmpRoot = realpath(sys_get_temp_dir()) ?: sys_get_temp_dir();
+        $buildDir = $tmpRoot . '/ci-build-' . uniqid();
+        StaticVars::$ciDockerPath = $buildDir;
 
         try {
             // Create build directory
             try {
-                if (!mkdir($dockerDir, 0755, true)) {
-                    throw new Exception("Failed to create build directory: {$dockerDir}");
+                if (!mkdir($buildDir, 0755, true)) {
+                    throw new Exception("Failed to create build directory: {$buildDir}");
                 }
             } catch (\Exception $e) {
-                throw new Exception("Failed to create build directory: {$dockerDir}. " . $e->getMessage());
+                throw new Exception("Failed to create build directory: {$buildDir}. " . $e->getMessage());
             }
 
             // Populate assets (e.g., xdebug install script)
@@ -652,17 +652,21 @@ class Main extends AbstractService {
                 throw new Exception('Failed to parse main.dockerfile template: ' . $e->getMessage());
             }
 
-            $dockerData->dockerFile = $dockerDir . '/Dockerfile';
-            file_put_contents($dockerData->dockerFile, $dockerFileContents);
+            $dockerData->dockerFile = $buildDir . '/Dockerfile';
+            if (file_put_contents($dockerData->dockerFile, $dockerFileContents) === false) {
+                throw new Exception("Failed to create Dockerfile at: {$dockerData->dockerFile}");
+            }
 
             // Render docker-compose file for CI build
-            $ymlPath = $dockerDir . '/docker-compose.yml';
+            $ymlPath = $buildDir . '/docker-compose.yml';
             $dockerComposeFileContents = $this->twig->render('@docker/main.compose.yml.twig', (array) $dockerData);
-            file_put_contents($ymlPath, $dockerComposeFileContents);
+            if (file_put_contents($ymlPath, $dockerComposeFileContents) === false || !file_exists($ymlPath)) {
+                throw new Exception("Failed to create docker compose file at: {$ymlPath}");
+            }
 
             // Build the image using docker compose
             $usesSsh = $this->pluginsReposUseSsh($recipe);
-            $this->dockerService->buildImageWithCompose($ymlPath, $dockerData, $imageName, $dockerDir, $usesSsh);
+            $this->dockerService->buildImageWithCompose($ymlPath, $dockerData, $imageName, $buildDir, $usesSsh);
         } finally {
             // Clean up build directory
             if (is_dir($buildDir)) {

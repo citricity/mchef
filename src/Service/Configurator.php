@@ -14,6 +14,12 @@ class Configurator extends AbstractService {
         static::$config = null;
     }
 
+    private function invalidateCachedMainConfigIfTesting(): void {
+        if (TestingHelpers::isPHPUnit()) {
+            $this->invalidateCachedMainConfig();
+        }
+    }
+
     final public static function instance(bool $reset = false): Configurator {
         return self::setup_singleton($reset)->initializeConfig();
     }
@@ -165,15 +171,12 @@ class Configurator extends AbstractService {
         // We need to now put the uuid into the .mchef folder corresponding to the recipe.
         $mchefPath = dirname($instanceRecipePath).'/.mchef';
         file_put_contents($mchefPath.'/registry_uuid.txt', $uuid);
-       $this->invalidateCachedMainConfig();
+        $this->invalidateCachedMainConfig();
         return $uuid;
     }
 
     public function getMainConfig(): GlobalConfig {
-        if (TestingHelpers::isPHPUnit()) {
-            // Always reset config to null.
-            static::$config = null;
-        }
+        $this->invalidateCachedMainConfigIfTesting();
         if (static::$config !== null) {
             return static::$config;
         }
