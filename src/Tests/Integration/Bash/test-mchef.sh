@@ -174,7 +174,7 @@ if [ "$MINIMAL_MODE" = true ]; then
     cat > test-recipe.json << EOF
 {
   "name": "minimal-test",
-    "publishTagPrefix": "$CONTAINER_PREFIX-ci",
+  "publishTagPrefix": "$CONTAINER_PREFIX-ci",
   "moodleTag": "v4.1.0",
   "phpVersion": "8.0",
   "plugins": [],
@@ -192,7 +192,7 @@ else
     cat > test-recipe.json << EOF
 {
   "name": "standard-test",
-    "publishTagPrefix": "$CONTAINER_PREFIX-ci",
+  "publishTagPrefix": "$CONTAINER_PREFIX-ci",
   "moodleTag": "v4.1.0",
   "phpVersion": "8.0",
   "plugins": [
