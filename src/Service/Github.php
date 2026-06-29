@@ -171,17 +171,16 @@ class Github extends AbstractService {
 
             $response = Http::get($apiUrl, ['Authorization' => 'Bearer ' . $token]);
 
-            switch ($response->statusCode) {
-                case 200:
-                    $data = json_decode($response->body, true);
-                    return is_array($data) && !empty($data); // Folder exists
-
-                case 404:
-                    return false; // Folder doesn't exist
-
-                default:
-                    throw new CliRuntimeException("GitHub API error {$response->statusCode}: {$response->body}");
+            if ($response->statusCode === 404) {
+                return false; // Folder doesn't exist
             }
+
+            if (!$response->isSuccessful()) {
+                throw new CliRuntimeException("GitHub API error {$response->statusCode}: {$response->body}");
+            }
+
+            $data = json_decode($response->body, true);
+            return is_array($data) && !empty($data); // Folder exists
         } catch (Exception $e) {
             $this->cli->info("GitHub API failed, falling back to raw URL: " . $e->getMessage());
             return $this->githubFolderExistsFallback($repositoryUrl, $branchOrTag, $folderPath);
@@ -209,7 +208,7 @@ class Github extends AbstractService {
             return false;
         }
 
-        if ($response->statusCode !== 200) {
+        if (!$response->isSuccessful()) {
             throw new CliRuntimeException("GitHub API error {$response->statusCode} while checking folder existence");
         }
 

@@ -18,7 +18,7 @@ class DisclaimerTest extends \PHPUnit\Framework\TestCase {
     protected function setUp(): void {
         parent::setUp();
         
-        TestingHelpers::setIsPHPUnit(true);
+        TestingHelpers::setIsPhpUnit(true);
         
         // Create mock CLI without auto-creating terms agreement
         $this->mockCli = $this->createMock(MChefCLI::class);

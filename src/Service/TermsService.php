@@ -43,7 +43,7 @@ class TermsService extends AbstractService {
      * Reset singleton instance (for testing purposes)
      */
     public static function resetInstance(): void {
-        if (TestingHelpers::isPHPUnit()) {
+        if (TestingHelpers::isPhpUnit()) {
             // Use the reset parameter in setup_singleton
             self::setup_singleton(true);
         }
@@ -56,7 +56,7 @@ class TermsService extends AbstractService {
      */
     public function ensureTermsAgreement($options = null): bool {
         // Skip terms check during testing unless explicitly testing terms functionality or forced
-        if ((TestingHelpers::isPHPUnit() && !self::$forceTermsCheck) || getenv('MCHEF_I_ACCEPT_TERMS') === '1' ) {
+        if ((TestingHelpers::isPhpUnit() && !self::$forceTermsCheck) || getenv('MCHEF_I_ACCEPT_TERMS') === '1' ) {
             return true;
         }
         
@@ -179,7 +179,7 @@ _DISCLAIMER_;
      * Create terms agreement file for testing purposes
      */
     public function createTermsAgreementForTesting(): void {
-        if (!TestingHelpers::isPHPUnit()) {
+        if (!TestingHelpers::isPhpUnit()) {
             throw new \Error('This method should only be called during testing');
         }
         

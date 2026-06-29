@@ -174,6 +174,7 @@ if [ "$MINIMAL_MODE" = true ]; then
     cat > test-recipe.json << EOF
 {
   "name": "minimal-test",
+  "publishTagPrefix": "$CONTAINER_PREFIX-ci",
   "moodleTag": "v4.1.0",
   "phpVersion": "8.0",
   "plugins": [],
@@ -191,6 +192,7 @@ else
     cat > test-recipe.json << EOF
 {
   "name": "standard-test",
+  "publishTagPrefix": "$CONTAINER_PREFIX-ci",
   "moodleTag": "v4.1.0",
   "phpVersion": "8.0",
   "plugins": [
@@ -239,6 +241,21 @@ if [ ! -d "vendor" ]; then
     composer install --no-dev --prefer-dist
 fi
 cd "$TEST_DIR"
+
+# Test 2.5: CI image build
+print_status "Testing MChef CI command with --tag=latest..."
+CI_IMAGE_NAME="$CONTAINER_PREFIX-ci:latest"
+if timeout "$TIMEOUT" php "$MCHEF_DIR/mchef.php" ci --tag=latest test-recipe.json; then
+    if docker image inspect "$CI_IMAGE_NAME" > /dev/null 2>&1; then
+        print_success "CI command works and image was built: $CI_IMAGE_NAME"
+    else
+        print_error "CI command completed but expected image not found: $CI_IMAGE_NAME"
+        exit 1
+    fi
+else
+    print_error "CI command failed"
+    exit 1
+fi
 
 # Test 3: Recipe initialization
 print_status "Initializing MChef with test recipe (timeout: ${TIMEOUT}s)..."
