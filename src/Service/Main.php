@@ -626,9 +626,16 @@ class Main extends AbstractService {
         StaticVars::$recipe = $recipe;
 
         // Generate temporary project directory for build
-        $ciBuildDir = StaticVars::getCiDockerPath() ?? null;
+        $ciBuildDir = StaticVars::getCiDockerPath();
         if (!$ciBuildDir) {
-            $tmpRoot = realpath(sys_get_temp_dir()) ?: sys_get_temp_dir();
+            $tmpRoot = getcwd();
+            if (!$tmpRoot || !is_dir($tmpRoot) || !is_writable($tmpRoot)) {
+                $tmpRoot = sys_get_temp_dir();
+            }
+            if (!is_writable($tmpRoot)) {
+                throw new Exception("Temporary directory is not writable: {$tmpRoot}");
+            }
+            $tmpRoot = realpath($tmpRoot) ?: $tmpRoot;
             $ciBuildDir = $tmpRoot . '/ci-build-' . uniqid();
             StaticVars::setCiDockerPath($ciBuildDir);
         }
