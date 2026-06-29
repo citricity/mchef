@@ -626,9 +626,10 @@ class Main extends AbstractService {
         StaticVars::$recipe = $recipe;
 
         // Generate temporary project directory for build
-        $ciBuildDir = StaticVars::getCiDockerPath() ?? null;
+        $ciBuildDir = StaticVars::getCiDockerPath();
         if (!$ciBuildDir) {
-            $tmpRoot = realpath(sys_get_temp_dir()) ?: sys_get_temp_dir();
+            $tmpRoot = getcwd() ?: sys_get_temp_dir();
+            $tmpRoot = realpath($tmpRoot) ?: $tmpRoot;
             $ciBuildDir = $tmpRoot . '/ci-build-' . uniqid();
             StaticVars::setCiDockerPath($ciBuildDir);
         }
