@@ -17,11 +17,11 @@ class TestingHelpers {
      * 
      * @return bool True if running in PHPUnit tests
      */
-    public static function isPHPUnit(): bool {
+    public static function isPhpUnit(): bool {
         return !!static::$phpunitTest;
     }
 
-    public static function setIsPHPUnit(bool $value): void {
+    public static function setIsPhpUnit(bool $value): void {
         static::$phpunitTest = $value;
     }
 

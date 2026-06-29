@@ -15,7 +15,7 @@ class Configurator extends AbstractService {
     }
 
     private function invalidateCachedMainConfigIfTesting(): void {
-        if (TestingHelpers::isPHPUnit()) {
+        if (TestingHelpers::isPhpUnit()) {
             $this->invalidateCachedMainConfig();
         }
     }
@@ -30,7 +30,7 @@ class Configurator extends AbstractService {
     }
 
     public function configDir(): string {
-        if (TestingHelpers::isPHPUnit()) {
+        if (TestingHelpers::isPhpUnit()) {
             return OS::realPath(sys_get_temp_dir()).'/mchef_test_config';
         }
         // Note can't realPath both because mchef dir might not exist.
