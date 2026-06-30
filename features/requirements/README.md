@@ -38,7 +38,7 @@ Brief description of the feature
 
 ## Status
 
-- [ ] Not started
+- [ ] Pending
 - [ ] In progress
 - [ ] Completed
 ```

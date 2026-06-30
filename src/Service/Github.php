@@ -60,6 +60,86 @@ class Github extends AbstractService {
         }
     }
 
+    /**
+     * Publish HTML content into a repository path via the GitHub contents API.
+     *
+     * @param string $repo owner/repo format
+     * @param string $path file path inside repo (e.g. ABCD1234.html)
+     * @param string $html HTML body to upload
+     * @param string $token GitHub token with contents:write permission
+     * @param string $id Identifier used in commit message
+     * @param string $branch Target branch, defaults to main
+     * @return string URL to the uploaded GitHub resource
+     */
+    public function publishHtmlToRepository(string $repo, string $path, string $html, string $token, string $id, string $branch = 'main'): string {
+        $payload = [
+            'message' => "Add URL redirect $id",
+            'content' => base64_encode($html),
+            'branch' => $branch,
+        ];
+
+        ['status' => $status, 'body' => $body] = $this->putRepoContents($repo, $path, $token, $payload);
+
+        if ($status < 200 || $status >= 300) {
+            throw new CliRuntimeException("GitHub publish failed with HTTP $status: $body");
+        }
+
+        $json = json_decode($body, true);
+        if (!is_array($json)) {
+            throw new CliRuntimeException('GitHub publish succeeded but response body was invalid JSON');
+        }
+
+        return $json['content']['html_url']
+            ?? $json['content']['download_url']
+            ?? sprintf('https://github.com/%s/blob/%s/%s', $repo, $branch, ltrim($path, '/'));
+    }
+
+    /**
+     * Build a likely GitHub Pages URL for a repository/path pair.
+     */
+    public function buildGithubPagesUrl(string $repo, string $path): string {
+        [$owner, $repoName] = explode('/', $repo, 2);
+        $path = ltrim($path, '/');
+
+        if (strtolower($repoName) === strtolower($owner) . '.github.io') {
+            return sprintf('https://%s.github.io/%s', $owner, $path);
+        }
+
+        return sprintf('https://%s.github.io/%s/%s', $owner, $repoName, $path);
+    }
+
+    /**
+     * Execute the GitHub contents API PUT request.
+     *
+     * @return array{status:int,body:string}
+     */
+    protected function putRepoContents(string $repo, string $path, string $token, array $payload): array {
+        $ch = curl_init("https://api.github.com/repos/$repo/contents/$path");
+        curl_setopt_array($ch, [
+            CURLOPT_CUSTOMREQUEST => 'PUT',
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => [
+                'Authorization: Bearer ' . $token,
+                'Accept: application/vnd.github+json',
+                'X-GitHub-Api-Version: 2022-11-28',
+                'User-Agent: mchef',
+                'Content-Type: application/json',
+            ],
+            CURLOPT_POSTFIELDS => json_encode($payload),
+        ]);
+
+        $response = curl_exec($ch);
+        $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+
+        if ($response === false) {
+            throw new CliRuntimeException("GitHub publish request failed: $error");
+        }
+
+        return ['status' => (int)$status, 'body' => (string)$response];
+    }
+
     private function fetchViaApi(string $url, string $branchOrTag, string $filePath, string $token): ?string {
         [$owner, $repo] = $this->extractGithubOwnerRepo($url);
 

@@ -2,6 +2,7 @@
 
 namespace App\Command;
 
+use App\Exceptions\CliRuntimeException;
 use App\Service\QrCodeService;
 use App\StaticVars;
 use App\Traits\ExecTrait;
@@ -29,7 +30,38 @@ final class Playground extends AbstractCommand {
         $recipe = $instance->recipePath;
         $this->cli->info('Starting playground for instance: '.$instanceName);
         $this->cli->info('TODO, translate recipe '.$recipe.' to playground blueprint.json');
-        echo "\n\n".$this->qrCodeService->generateQrCode('Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.')."\n\n";
+
+        $globalConfig = $this->configuratorService->getMainConfig();
+        if (empty($globalConfig->githubToken)) {
+            $this->cli->warning('Missing global config field githubToken. Set it before using playground URL publishing.');
+            return;
+        }
+        if (empty($globalConfig->githubUrlsRepo)) {
+            $this->cli->warning('Missing global config field githubUrlsRepo. Format should be user(or org)/repo E.g. "citricity/mchef-urls". Set it before using playground URL publishing.');
+            return;
+        }
+
+        $playgroundLongUrl = $this->buildPlaygroundUrl($instanceName, $recipe);
+
+        try {
+            $result = $this->qrCodeService->publishRedirectUrl(
+                $playgroundLongUrl,
+                $globalConfig->githubUrlsRepo,
+                $globalConfig->githubToken
+            );
+        } catch (CliRuntimeException $e) {
+            $this->cli->error('Failed to publish playground URL: ' . $e->getMessage());
+            return;
+        }
+
+        $this->cli->success('Published redirect to: ' . $result['resourceUrl']);
+        $this->cli->success('Playground short URL: ' . $result['shortUrl']);
+        $this->cli->notice("\n" . $this->qrCodeService->generateQrCode($result['shortUrl']) . "\n");
+    }
+
+    private function buildPlaygroundUrl(string $instanceName, string $recipePath): string {
+        // TODO: Convert recipe to bluePrint.json format for playground.
+        return 'https://www.youtube.com/watch?v=YpBG8hNUrtM';
     }
 
    protected function register(Options $options): void {

@@ -47,6 +47,7 @@ class Main extends AbstractService {
         $loader->addPath(__DIR__ . '/../../templates/moodle', 'moodle');
         $loader->addPath(__DIR__ . '/../../templates/moodle/browser', 'moodle-browser');
         $loader->addPath(__DIR__ . '/../../templates/docker', 'docker');
+        $loader->addPath(__DIR__ . '/../../templates/github', 'github');
         $this->twig = new \Twig\Environment($loader);
         parent::__construct();
     }
