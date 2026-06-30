@@ -81,7 +81,7 @@ $CFG->lang = '{{config.lang}}';
 {% endif %}
 
 {% if (config.theme != UNSET) %}
-$CFG->theme = '{{config.theme}}';
+// Note $CFG->theme has to be set programatically AFTER installs have completed.
 {% endif %}
 
 {% if (config.timezone != UNSET) %}

@@ -13,7 +13,8 @@ class ConfigCommandTest extends MchefTestCase {
     use CallRestrictedMethodTrait;
     private Config $configCommand;
     private MockObject $configurator;
-    private Options $options;
+    /** @var Options&MockObject */
+    private $options;
 
     protected function setUp(): void {
         parent::setUp();
@@ -164,5 +165,72 @@ class ConfigCommandTest extends MchefTestCase {
 
         // Try to set 'mysql workbench' as PostgreSQL client (which is invalid)
         $this->callRestricted($this->configCommand, 'setDbClientPgsql', ['mysql workbench']);
+    }
+
+    public function testSetGithubToken(): void {
+        $this->options->method('getOpt')
+            ->willReturnCallback(function($opt) {
+                return match($opt) {
+                    'lang' => false,
+                    'proxy' => false,
+                    'password' => false,
+                    'dbclient' => false,
+                    'dbclient-mysql' => false,
+                    'dbclient-pgsql' => false,
+                    'registryUrl' => false,
+                    'registryUsername' => false,
+                    'registryPassword' => false,
+                    'registryToken' => false,
+                    'githubToken' => 'ghp_test_token',
+                    default => null
+                };
+            });
+
+        $this->configurator->expects($this->once())
+            ->method('setMainConfigField')
+            ->with('githubToken', 'ghp_test_token');
+
+        $this->cli->expects($this->exactly(2))
+            ->method('notice')
+            ->withConsecutive(
+                ['Config field \'githubToken\' has been set.', []],
+                ['GitHub token has been set.', []]
+            );
+
+        $this->configCommand->execute($this->options);
+    }
+
+    public function testSetGithubUrlsRepo(): void {
+        $this->options->method('getOpt')
+            ->willReturnCallback(function($opt) {
+                return match($opt) {
+                    'lang' => false,
+                    'proxy' => false,
+                    'password' => false,
+                    'dbclient' => false,
+                    'dbclient-mysql' => false,
+                    'dbclient-pgsql' => false,
+                    'registryUrl' => false,
+                    'registryUsername' => false,
+                    'registryPassword' => false,
+                    'registryToken' => false,
+                    'githubToken' => false,
+                    'githubUrlsRepo' => 'citricity/mchef-urls',
+                    default => null
+                };
+            });
+
+        $this->configurator->expects($this->once())
+            ->method('setMainConfigField')
+            ->with('githubUrlsRepo', 'citricity/mchef-urls');
+
+        $this->cli->expects($this->exactly(2))
+            ->method('notice')
+            ->withConsecutive(
+                ['Config field \'githubUrlsRepo\' has been set.', []],
+                ['GitHub URLs repository has been set.', []]
+            );
+
+        $this->configCommand->execute($this->options);
     }
 }

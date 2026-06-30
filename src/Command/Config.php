@@ -118,6 +118,10 @@ final class Config extends AbstractCommand {
             $this->setRegistryPassword(trim($options->getOpt('registryPassword')));
         } else if (!empty($options->getOpt('registryToken'))) {
             $this->setRegistryToken(trim($options->getOpt('registryToken')));
+        } else if (!empty($options->getOpt('githubToken'))) {
+            $this->setGithubToken(trim($options->getOpt('githubToken')));
+        } else if (!empty($options->getOpt('githubUrlsRepo'))) {
+            $this->setGithubUrlsRepo(trim($options->getOpt('githubUrlsRepo')));
         } else if ($options->getOpt('get-config-dir')) {
             $configDir = $this->configuratorService->configDir();
             $this->cli->notice("Config directory: $configDir");
@@ -168,6 +172,16 @@ final class Config extends AbstractCommand {
         $this->cli->notice("Docker image registry token has been set.");
     }
 
+    private function setGithubToken(string $token) {
+        $this->setConfigField('githubToken', $token);
+        $this->cli->notice("GitHub token has been set.");
+    }
+
+    private function setGithubUrlsRepo(string $repo) {
+        $this->setConfigField('githubUrlsRepo', $repo);
+        $this->cli->notice("GitHub URLs repository has been set.");
+    }
+
     protected function register(Options $options): void {
         $options->registerCommand(self::COMMAND_NAME, 'Configure mchef globally');
         $options->registerOption('lang', 'Set a default language code', 'l', true, self::COMMAND_NAME);
@@ -180,6 +194,8 @@ final class Config extends AbstractCommand {
         $options->registerOption('registryUsername', 'Set docker image registry username', null, 'USERNAME', self::COMMAND_NAME);
         $options->registerOption('registryPassword', 'Set docker image registry password', null, 'PASSWORD', self::COMMAND_NAME);
         $options->registerOption('registryToken', 'Set docker image registry token', null, 'TOKEN', self::COMMAND_NAME);
+        $options->registerOption('githubToken', 'Set github token for URL publishing', null, 'TOKEN', self::COMMAND_NAME);
+        $options->registerOption('githubUrlsRepo', 'Set github repository for URL publishing (owner/repo)', null, 'REPO', self::COMMAND_NAME);
         $options->registerOption('get-config-dir', 'Get the path to the config directory', null, false, self::COMMAND_NAME);
         $options->registerOption('debugMode', 'Set debug mode for mchef (none, error, warning, verbose)', null, 'MODE', self::COMMAND_NAME);
     }
