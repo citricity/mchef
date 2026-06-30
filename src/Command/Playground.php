@@ -22,11 +22,17 @@ final class Playground extends AbstractCommand {
     }
 
     public function execute(Options $options): void {
-        $this->setStaticVarsFromOptions($options);
-        $instance = StaticVars::$instance;
-        $instanceName = $instance->containerPrefix;
-        $recipe = $this->mainService->getRecipe($instance->recipePath);
-        $this->cli->info('Starting playground for instance: '.$instanceName);
+        $args   = $options->getArgs();
+        $source = $args[0] ?? null;
+
+        if ($source !== null && is_file($source)) {
+            $recipe = Recipe::fromJSONFile($source);
+        } else {
+            $this->setStaticVarsFromOptions($options);
+            $instance = StaticVars::$instance;
+            $this->cli->info('Starting playground for instance: ' . $instance->containerPrefix);
+            $recipe = $this->mainService->getRecipe($instance->recipePath);
+        }
 
         $converter = BlueprintConverter::instance();
         $blueprint = $converter->convert($recipe);
@@ -65,7 +71,7 @@ final class Playground extends AbstractCommand {
 
     protected function register(Options $options): void {
         $options->registerCommand(self::COMMAND_NAME, 'Convert a mchef recipe to a Moodle Playground blueprint');
-        $options->registerArgument('instance', 'Instance name for Moodle playground (optional if instance selected, or run from project directory).', false, self::COMMAND_NAME);
+        $options->registerArgument('source', 'Path to a recipe JSON file, or a running instance name', false, self::COMMAND_NAME);
         $options->registerOption('output', 'Write blueprint to a file instead of stdout', 'o', 'PATH', self::COMMAND_NAME);
         $options->registerOption('stage', 'Publish blueprint to your configured mchef-urls repo', 's', false, self::COMMAND_NAME);
     }
