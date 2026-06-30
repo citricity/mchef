@@ -60,6 +60,15 @@ class BlueprintConverter extends AbstractService {
 
         $blueprint['steps'] = $steps;
 
+        if ($recipe->playgroundLandingPage !== null) {
+            if (!str_starts_with($recipe->playgroundLandingPage, '/')) {
+                throw new \InvalidArgumentException(
+                    "playgroundLandingPage must start with '/' — got: {$recipe->playgroundLandingPage}"
+                );
+            }
+            $blueprint['landingPage'] = $recipe->playgroundLandingPage;
+        }
+
         return $blueprint;
     }
 

@@ -189,6 +189,33 @@ final class BlueprintConverterTest extends \App\Tests\MchefTestCase
         $this->assertNull($this->findStep($blueprint, 'setTheme'));
     }
 
+    public function testLandingPageMappedWhenSet(): void {
+        $recipe = $this->makeRecipe(['playgroundLandingPage' => '/course/view.php?id=2']);
+        $blueprint = $this->converter->convert($recipe);
+        $this->assertEquals('/course/view.php?id=2', $blueprint['landingPage']);
+    }
+
+    public function testLandingPageOmittedWhenNull(): void {
+        $recipe = $this->makeRecipe([]);
+        $blueprint = $this->converter->convert($recipe);
+        $this->assertArrayNotHasKey('landingPage', $blueprint);
+    }
+
+    public function testLandingPageValidationRejectsNonSlashPrefix(): void {
+        $recipe = $this->makeRecipe(['playgroundLandingPage' => 'course/view.php?id=2']);
+        $this->expectException(\InvalidArgumentException::class);
+        $this->converter->convert($recipe);
+    }
+
+    public function testLandingPageIsTopLevel(): void {
+        $recipe = $this->makeRecipe(['playgroundLandingPage' => '/']);
+        $blueprint = $this->converter->convert($recipe);
+        $this->assertArrayHasKey('landingPage', $blueprint);
+        foreach ($blueprint['steps'] as $step) {
+            $this->assertArrayNotHasKey('landingPage', $step);
+        }
+    }
+
     private function makeRecipe(array $recipeProps, array $configProps = []): Recipe {
         $defaults = [
             'moodleTag'   => 'v5.0.0',
