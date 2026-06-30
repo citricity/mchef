@@ -43,13 +43,16 @@ class Main extends AbstractService {
     private ?string $chefPath = null;
 
     protected function __construct() {
+        $this->registerTemplates();
+        parent::__construct();
+    }
+
+    protected function registerTemplates() {
         $loader = new \Twig\Loader\FilesystemLoader(__DIR__ . '/../../templates');
         $loader->addPath(__DIR__ . '/../../templates/moodle', 'moodle');
         $loader->addPath(__DIR__ . '/../../templates/moodle/browser', 'moodle-browser');
         $loader->addPath(__DIR__ . '/../../templates/docker', 'docker');
-        $loader->addPath(__DIR__ . '/../../templates/github', 'github');
         $this->twig = new \Twig\Environment($loader);
-        parent::__construct();
     }
 
     public function getTwig(): \Twig\Environment {

@@ -9,8 +9,7 @@ Allows a long URL to be saved inside a github repo with a uuid. Basically a chea
 ### Implementation
 Require github functions (within github service) with authentication to github api.
 
-For each URL that we want to shorten we should populate urlFile.twig with the url.
-The rendered template should then be committed to github with the appropriate uuid as the filename - e.g. ADGH43284328.html
+For each URL that we want to shorten we should create links/[sha1hashofurl].txt
 
 The repository will be managed via github API.
 We will need to ensure the globalConfig contains githubToken. If not it should prevent and warning when running the playground command.

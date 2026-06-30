@@ -166,7 +166,7 @@ class MoodleConfigServiceTest extends MchefTestCase
         }
     }
 
-    public function testProcessConfigFileRendersThemeSettingWhenConfigured(): void
+    public function testProcessConfigFileLeavesThemeForPostInstallWhenConfigured(): void
     {
         $moodleConfig = MoodleConfig::instance();
 
@@ -191,7 +191,8 @@ class MoodleConfigServiceTest extends MchefTestCase
         $moodleConfig->processConfigFile($recipe);
 
         $renderedConfig = file_get_contents($realMain->getAssetsPath().'/config.php');
-        $this->assertStringContainsString("\$CFG->theme = 'boost';", $renderedConfig);
+        $this->assertStringNotContainsString("\$CFG->theme = 'boost';", $renderedConfig);
+        $this->assertStringContainsString('Note $CFG->theme has to be set programatically AFTER installs have completed.', $renderedConfig);
 
         // Cleanup
         $assetsPath = $realMain->getAssetsPath();

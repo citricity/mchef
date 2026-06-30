@@ -24,26 +24,21 @@ final class QrCodeService extends AbstractService {
         return (new QRCode($options))->render($text);
     }
 
-    public function renderRedirectHtml(string $url): string {
-        return $this->mainService->getTwig()->render('@github/urlFile.twig', ['url' => $url]);
-    }
-
     /**
      * Create and publish a redirect HTML file to a GitHub repo.
      *
      * @return array{id:string,resourceUrl:string,shortUrl:string}
      */
-    public function publishRedirectUrl(string $url, string $repo, string $token, ?string $id = null): array {
-        $id = $id ?? strtoupper(bin2hex(random_bytes(8)));
-        $path = $id . '.html';
-        $html = $this->renderRedirectHtml($url);
-
-        $resourceUrl = $this->githubService->publishHtmlToRepository($repo, $path, $html, $token, $id);
+    public function publishRedirectUrl(string $url, string $repo, string $token): array {
+        $linkHash = sha1($url);
+        $path = 'links/' . $linkHash . '.txt';
+        
+        $resourceUrl = $this->githubService->publishUrlToRepository($repo, $path, $url, $token, $linkHash);
 
         return [
-            'id' => $id,
+            'id' => $linkHash,
             'resourceUrl' => $resourceUrl,
-            'shortUrl' => $this->githubService->buildGithubPagesUrl($repo, $path),
+            'shortUrl' => $this->githubService->buildGithubPagesUrl($repo, $linkHash),
         ];
     }
 }

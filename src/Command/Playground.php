@@ -54,14 +54,15 @@ final class Playground extends AbstractCommand {
             return;
         }
 
-        $this->cli->success('Published redirect to: ' . $result['resourceUrl']);
+        $this->cli->debug('Published redirect to: ' . $result['resourceUrl']);
         $this->cli->success('Playground short URL: ' . $result['shortUrl']);
-        $this->cli->notice("\n" . $this->qrCodeService->generateQrCode($result['shortUrl']) . "\n");
+        // Note - intentinoally not using the cli->info() method here, as we want the QR code in white.
+        echo("\n" . $this->qrCodeService->generateQrCode($result['shortUrl']) . "\n");
     }
 
     private function buildPlaygroundUrl(string $instanceName, string $recipePath): string {
         // TODO: Convert recipe to bluePrint.json format for playground.
-        return 'https://www.youtube.com/watch?v=YpBG8hNUrtM';
+        return 'https://ateeducacion.github.io/moodle-playground/?blueprint=ewogICIkc2NoZW1hIjogIi4vYmx1ZXByaW50LXNjaGVtYS5qc29uIiwKICAicHJlZmVycmVkVmVyc2lvbnMiOiB7CiAgICAicGhwIjogIjguNCIsCiAgICAibW9vZGxlIjogIjUuMiIKICB9LAogICJsYW5kaW5nUGFnZSI6ICIvY291cnNlL3ZpZXcucGhwP2lkPTIiLAogICJzdGVwcyI6IFsKICAgIHsgInN0ZXAiOiAiaW5zdGFsbE1vb2RsZSIsICJvcHRpb25zIjogeyAic2l0ZU5hbWUiOiAiTXkgTW9vZGxlIiB9IH0sCiAgICB7ICJzdGVwIjogImxvZ2luIiwgInVzZXJuYW1lIjogImFkbWluIiB9LAogICAgeyAic3RlcCI6ICJpbnN0YWxsVGhlbWUiLCAidXJsIjogImh0dHBzOi8vZ2l0aHViLmNvbS9namJhcm5hcmQvbW9vZGxlLXRoZW1lX2FkYXB0YWJsZS9hcmNoaXZlL3JlZnMvdGFncy9WNTAyLjEuMS56aXAiIH0sCiAgICB7ICJzdGVwIjogInNldFRoZW1lIiwgIm5hbWUiOiAiYWRhcHRhYmxlIiB9LAogICAgeyAic3RlcCI6ICJjcmVhdGVDb3Vyc2UiLCAiZnVsbG5hbWUiOiAiUGh5c2ljcyAxMDEiLCAic2hvcnRuYW1lIjogIlBIWVMxMDEiIH0sCiAgICB7ICJzdGVwIjogImFkZE1vZHVsZSIsICJtb2R1bGUiOiAibGFiZWwiLCAiY291cnNlIjogIlBIWVMxMDEiLCAibmFtZSI6ICJXZWxjb21lIiwgImludHJvIjogIjxwPkhlbGxvIFdvcmxkITwvcD4iIH0KICBdCn0=';
     }
 
    protected function register(Options $options): void {

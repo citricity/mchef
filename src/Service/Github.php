@@ -61,22 +61,27 @@ class Github extends AbstractService {
     }
 
     /**
-     * Publish HTML content into a repository path via the GitHub contents API.
+     * Publish URL content into a repository path via the GitHub contents API.
      *
      * @param string $repo owner/repo format
      * @param string $path file path inside repo (e.g. ABCD1234.html)
-     * @param string $html HTML body to upload
+     * @param string $url URL content to upload
      * @param string $token GitHub token with contents:write permission
      * @param string $id Identifier used in commit message
      * @param string $branch Target branch, defaults to main
      * @return string URL to the uploaded GitHub resource
      */
-    public function publishHtmlToRepository(string $repo, string $path, string $html, string $token, string $id, string $branch = 'main'): string {
+    public function publishUrlToRepository(string $repo, string $path, string $url, string $token, string $id, string $branch = 'main'): string {
         $payload = [
             'message' => "Add URL redirect $id",
-            'content' => base64_encode($html),
+            'content' => base64_encode($url),
             'branch' => $branch,
         ];
+
+        $existingFileSha = $this->fetchRepoFileSha($repo, $path, $token, $branch);
+        if ($existingFileSha !== null) {
+            $payload['sha'] = $existingFileSha;
+        }
 
         ['status' => $status, 'body' => $body] = $this->putRepoContents($repo, $path, $token, $payload);
 
@@ -97,9 +102,9 @@ class Github extends AbstractService {
     /**
      * Build a likely GitHub Pages URL for a repository/path pair.
      */
-    public function buildGithubPagesUrl(string $repo, string $path): string {
+    public function buildGithubPagesUrl(string $repo, string $linkHash): string {
         [$owner, $repoName] = explode('/', $repo, 2);
-        $path = ltrim($path, '/');
+        $path = 'index.html?linkHash=' . rawurlencode($linkHash);
 
         if (strtolower($repoName) === strtolower($owner) . '.github.io') {
             return sprintf('https://%s.github.io/%s', $owner, $path);
@@ -138,6 +143,45 @@ class Github extends AbstractService {
         }
 
         return ['status' => (int)$status, 'body' => (string)$response];
+    }
+
+    /**
+     * Fetch the current file SHA for updates via GitHub contents API.
+     */
+    protected function fetchRepoFileSha(string $repo, string $path, string $token, string $branch): ?string {
+        $apiPath = str_replace('%2F', '/', rawurlencode(ltrim($path, '/')));
+        $apiUrl = sprintf(
+            'https://api.github.com/repos/%s/contents/%s?ref=%s',
+            $repo,
+            $apiPath,
+            rawurlencode($branch)
+        );
+
+        $response = Http::get($apiUrl, [
+            'authorization' => 'Bearer ' . $token,
+            'accept' => 'application/vnd.github+json',
+            'x-github-api-version' => '2022-11-28',
+            'user-agent' => 'mchef',
+        ]);
+
+        if ($response->statusCode === 404) {
+            return null;
+        }
+
+        if (!$response->isSuccessful()) {
+            throw new CliRuntimeException("GitHub publish failed while fetching existing file SHA (HTTP {$response->statusCode}): {$response->body}");
+        }
+
+        $json = json_decode($response->body, true);
+        if (!is_array($json)) {
+            throw new CliRuntimeException('GitHub publish failed while fetching existing file SHA: invalid JSON response');
+        }
+
+        if (empty($json['sha']) || !is_string($json['sha'])) {
+            throw new CliRuntimeException('GitHub publish failed while fetching existing file SHA: missing sha field');
+        }
+
+        return $json['sha'];
     }
 
     private function fetchViaApi(string $url, string $branchOrTag, string $filePath, string $token): ?string {
