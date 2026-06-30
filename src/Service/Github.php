@@ -25,22 +25,34 @@ class Github extends AbstractService {
      * @return string Raw.githubusercontent.com base
      */
     public function githubToRawBaseUrl(string $url): string {
-        // Normalize SSH form: git@github.com:owner/repo(.git)
-        if (preg_match('#^git@github\.com:(.+)$#', $url, $m)) {
-            $url = 'https://github.com/' . $m[1];
-        }
-
-        // Extract owner + repo, drop optional .git
-        if (!preg_match('#https?://github\.com/([^/]+)/([^/]+?)(?:\.git)?$#', $url, $m)) {
-            throw new InvalidArgumentException("Not a valid GitHub URL: $url");
-        }
-
-        [, $owner, $repo] = $m;
+        [$owner, $repo] = $this->getGithubOwnerRepo($url);
 
         return sprintf(
             'https://raw.githubusercontent.com/%s/%s',
             $owner,
             $repo
+        );
+    }
+
+    /**
+     * Convert a GitHub repo URL to the download URL.
+     *
+     * Examples:
+     *   https://github.com/moodle/moodle.git → https://github.com/moodle/moodle/archive/refs/heads/main.zip
+     *   git@github.com:moodle/moodle.git     → https://github.com/moodle/moodle/archive/refs/heads/main.zip
+     *
+     * @param string $url Git clone URL in HTTPS or SSH format
+     * @param string $branch Git branch to download
+     * @return string https://github.com/moodle/moodle/archive/refs/heads/main.zip
+     */
+    public function githubToDownloadZipUrl(string $url, string $branch): string {
+        [$owner, $repo] = $this->getGithubOwnerRepo($url);
+
+        return sprintf(
+            'https://github.com/%s/%s/archive/refs/heads/%s.zip',
+            $owner,
+            $repo,
+            $branch
         );
     }
 
@@ -219,5 +231,25 @@ class Github extends AbstractService {
 
         $jsonobj = json_decode($json, true);
         return is_array($jsonobj) && array_is_list($jsonobj);
-    }        
+    }
+
+    /**
+     * @param string $url
+     * @param $m
+     * @return array
+     */
+    public function getGithubOwnerRepo(string $url): array {
+        // Normalize SSH form: git@github.com:owner/repo(.git)
+        if (preg_match('#^git@github\.com:(.+)$#', $url, $m)) {
+            $url = 'https://github.com/' . $m[1];
+        }
+
+        // Extract owner + repo, drop optional .git
+        if (!preg_match('#https?://github\.com/([^/]+)/([^/]+?)(?:\.git)?$#', $url, $m)) {
+            throw new InvalidArgumentException("Not a valid GitHub URL: $url");
+        }
+
+        [, $owner, $repo] = $m;
+        return [$owner, $repo];
+    }
 }
