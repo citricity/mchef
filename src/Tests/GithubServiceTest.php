@@ -113,4 +113,15 @@ final class GithubServiceTest extends MchefTestCase {
         $this->assertEquals('https://citricity.github.io/mchef-urls/index.html?linkHash=ABCD1234.html', $projectPages);
         $this->assertEquals('https://citricity.github.io/index.html?linkHash=ABCD1234.html', $userPages);
     }
+
+    public function testGithubToDownloadZipUrl() {
+        $urlhttp = 'https://github.com/moodle/moodle.git';
+        $urlssh = 'git@github.com:moodle/moodle.git';
+        $branch = 'master';
+        $expected = 'https://github.com/moodle/moodle/archive/refs/heads/master.zip';
+        $actual = Github::instance()->githubToDownloadZipUrl($urlhttp, $branch);
+        $this->assertEquals($expected, $actual);
+        $actual = Github::instance()->githubToDownloadZipUrl($urlssh, $branch);
+        $this->assertEquals($expected, $actual);
+    }
 }
