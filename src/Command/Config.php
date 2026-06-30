@@ -125,6 +125,12 @@ final class Config extends AbstractCommand {
             $mode = $options->getOpt('debugMode');
             $this->setConfigField('debugMode', $mode);
             $this->cli->notice("Debug mode has been set to $mode.");
+        } else if (!empty($options->getOpt('playground-urls-repo'))) {
+            $this->setConfigField('playgroundUrlsRepo', trim($options->getOpt('playground-urls-repo')));
+            $this->cli->notice("Playground URLs repo set.");
+        } else if (!empty($options->getOpt('playground-urls-base'))) {
+            $this->setConfigField('playgroundUrlsBase', rtrim(trim($options->getOpt('playground-urls-base')), '/'));
+            $this->cli->notice("Playground URLs base URL set.");
         } else {
             $this->cli->error('No valid options provided. Use --help for usage information.');
         }
@@ -182,5 +188,7 @@ final class Config extends AbstractCommand {
         $options->registerOption('registryToken', 'Set docker image registry token', null, 'TOKEN', self::COMMAND_NAME);
         $options->registerOption('get-config-dir', 'Get the path to the config directory', null, false, self::COMMAND_NAME);
         $options->registerOption('debugMode', 'Set debug mode for mchef (none, error, warning, verbose)', null, 'MODE', self::COMMAND_NAME);
+        $options->registerOption('playground-urls-repo', 'Set the mchef-urls git repo URL', null, 'URL', self::COMMAND_NAME);
+        $options->registerOption('playground-urls-base', 'Set the mchef-urls GitHub Pages base URL', null, 'URL', self::COMMAND_NAME);
     }
 }

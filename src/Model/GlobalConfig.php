@@ -79,6 +79,18 @@ class GlobalConfig extends AbstractModel {
         /**
          * Debug mode for mchef - none, error, warning, verbose
          */
-        public ?DebugMode $debugMode = DebugMode::NONE
+        public ?DebugMode $debugMode = DebugMode::NONE,
+
+        /**
+         * Git clone URL of the user's mchef-urls style redirect repo.
+         * e.g. https://github.com/citricity/mchef-urls.git
+         */
+        public ?string $playgroundUrlsRepo = null,
+
+        /**
+         * GitHub Pages base URL for the above repo.
+         * e.g. https://citricity.github.io/mchef-urls
+         */
+        public ?string $playgroundUrlsBase = null,
     ) {}
 }
