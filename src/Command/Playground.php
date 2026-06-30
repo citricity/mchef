@@ -2,6 +2,7 @@
 
 namespace App\Command;
 
+use App\Service\QrCodeService;
 use App\StaticVars;
 use App\Traits\ExecTrait;
 use App\Traits\SingletonTrait;
@@ -11,6 +12,9 @@ final class Playground extends AbstractCommand {
 
     use SingletonTrait;
     use ExecTrait;
+
+    // Service.
+    public QrCodeService $qrCodeService;
 
     const COMMAND_NAME = 'playground';
 
@@ -25,6 +29,7 @@ final class Playground extends AbstractCommand {
         $recipe = $instance->recipePath;
         $this->cli->info('Starting playground for instance: '.$instanceName);
         $this->cli->info('TODO, translate recipe '.$recipe.' to playground blueprint.json');
+        echo "\n\n".$this->qrCodeService->generateQrCode('Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.')."\n\n";
     }
 
    protected function register(Options $options): void {

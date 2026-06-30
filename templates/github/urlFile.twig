@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Redirecting…</title>
+
+    <meta http-equiv="refresh" content="0; url={{ url|e('html_attr') }}">
+
+    <script>
+        location.replace({{ url|json_encode|raw }});
+    </script>
+</head>
+<body>
+    <p>Redirecting…</p>
+
+    <p>
+        If you are not redirected automatically,
+        <a href="{{ url|e('html_attr') }}">click here</a>.
+    </p>
+</body>
+</html>

@@ -66,6 +66,11 @@ class GlobalConfig extends AbstractModel {
         public ?string $registryToken = null,
 
         /**
+         * GitHub token for accessing GitHub API - required for generating QR codes, etc...
+         */
+        public ?string $githubToken = null,
+
+        /**
          * Registry password for publishing images
          */
         public ?string $registryPassword = null,
