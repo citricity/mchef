@@ -503,7 +503,7 @@ class Docker extends AbstractService {
         $baseArgs = "--project-directory {$projectDirEscaped} -f {$composeFileEscaped} build";
         $cmd = "{$dockerBuildKit}{$composeCmd} {$baseArgs}";
         $errorMsg = "Failed to build image with docker compose";
-        $this->exec($cmd, $errorMsg);
+        $this->execPassthru($cmd, $errorMsg);
         
         // Get the built image name from compose and tag it with our custom name
         // This is a bit tricky - we need to inspect what compose built and rename it
