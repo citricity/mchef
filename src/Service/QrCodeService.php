@@ -7,8 +7,6 @@ use chillerlan\QRCode\QRCode;
 use chillerlan\QRCode\QROptions;
 
 final class QrCodeService extends AbstractService {
-
-    private Main $mainService;
     private Github $githubService;
 
     public static function instance(): QrCodeService {
