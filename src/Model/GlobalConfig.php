@@ -92,5 +92,12 @@ class GlobalConfig extends AbstractModel {
          * e.g. https://citricity.github.io/mchef-urls
          */
         public ?string $playgroundUrlsBase = null,
+
+        /**
+         * Absolute path to a local moodle-playground checkout.
+         * Used for snapshot builds and version-manifest checks.
+         * Defaults to ../moodle-playground relative to cwd when null.
+         */
+        public ?string $playgroundLocalPath = null,
     ) {}
 }

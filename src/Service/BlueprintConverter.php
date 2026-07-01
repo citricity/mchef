@@ -33,7 +33,7 @@ class BlueprintConverter extends AbstractService {
      *
      * TODO: Consider mapping additional fields.
      */
-    public function convert(Recipe $recipe): array {
+    public function convert(Recipe $recipe, ?string $snapshotUrl = null): array {
         $this->warnings = [];
         $blueprint = [];
 
@@ -56,6 +56,10 @@ class BlueprintConverter extends AbstractService {
 
         if ($recipe->config->theme !== AbstractModel::UNSET) {
             $steps[] = ['step' => 'setTheme', 'name' => $recipe->config->theme];
+        }
+
+        if ($snapshotUrl !== null) {
+            array_unshift($steps, ['step' => 'restoreDatabase', 'url' => $snapshotUrl]);
         }
 
         $blueprint['steps'] = $steps;

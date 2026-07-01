@@ -131,6 +131,13 @@ final class Config extends AbstractCommand {
         } else if (!empty($options->getOpt('playground-urls-base'))) {
             $this->setConfigField('playgroundUrlsBase', rtrim(trim($options->getOpt('playground-urls-base')), '/'));
             $this->cli->notice("Playground URLs base URL set.");
+        } else if (!empty($options->getOpt('playground-path'))) {
+            $path = realpath(trim($options->getOpt('playground-path')));
+            if ($path === false || !is_dir($path)) {
+                throw new \App\Exceptions\CliRuntimeException("Directory not found: " . $options->getOpt('playground-path'));
+            }
+            $this->setConfigField('playgroundLocalPath', $path);
+            $this->cli->notice("Playground local path set to: $path");
         } else {
             $this->cli->error('No valid options provided. Use --help for usage information.');
         }
@@ -190,5 +197,6 @@ final class Config extends AbstractCommand {
         $options->registerOption('debugMode', 'Set debug mode for mchef (none, error, warning, verbose)', null, 'MODE', self::COMMAND_NAME);
         $options->registerOption('playground-urls-repo', 'Set the mchef-urls git repo URL', null, 'URL', self::COMMAND_NAME);
         $options->registerOption('playground-urls-base', 'Set the mchef-urls GitHub Pages base URL', null, 'URL', self::COMMAND_NAME);
+        $options->registerOption('playground-path', 'Set path to local moodle-playground checkout', null, 'PATH', self::COMMAND_NAME);
     }
 }

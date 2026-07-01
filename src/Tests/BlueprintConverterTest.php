@@ -216,6 +216,25 @@ final class BlueprintConverterTest extends \App\Tests\MchefTestCase
         }
     }
 
+    public function testSnapshotUrlPrependsRestoreDatabaseStep(): void {
+        $recipe    = $this->makeRecipe([]);
+        $blueprint = $this->converter->convert($recipe, 'https://example.com/data/foo.sq3');
+        $this->assertEquals('restoreDatabase', $blueprint['steps'][0]['step']);
+        $this->assertEquals('https://example.com/data/foo.sq3', $blueprint['steps'][0]['url']);
+    }
+
+    public function testSnapshotUrlPushesInstallMoodleToSecondStep(): void {
+        $recipe    = $this->makeRecipe([]);
+        $blueprint = $this->converter->convert($recipe, 'https://example.com/data/foo.sq3');
+        $this->assertEquals('installMoodle', $blueprint['steps'][1]['step']);
+    }
+
+    public function testNoSnapshotUrlLeavesInstallMoodleAsFirstStep(): void {
+        $recipe    = $this->makeRecipe([]);
+        $blueprint = $this->converter->convert($recipe);
+        $this->assertEquals('installMoodle', $blueprint['steps'][0]['step']);
+    }
+
     private function makeRecipe(array $recipeProps, array $configProps = []): Recipe {
         $defaults = [
             'moodleTag'   => 'v5.0.0',
