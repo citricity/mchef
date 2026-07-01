@@ -183,6 +183,13 @@ class Recipe extends AbstractModel {
         public ?string $adminPassword = null,
 
         /**
+         * @var string|null - Moodle-relative path to navigate to after playground setup.
+         * Must start with '/'. Maps to 'landingPage' in the blueprint JSON.
+         * e.g. "/course/view.php?id=2"
+         */
+        public ?string $playgroundLandingPage = null,
+
+        /**
          * @var string|null - prefix for published Docker image tags (e.g. "my-app" results in "my-app:v1.5.0")
          */
         public ?string $publishTagPrefix = null,

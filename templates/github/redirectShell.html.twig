@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Redirecting...</title>
+</head>
+<body>
+<h1>Redirecting you, please wait...</h1>
+
+<script type="module">
+const urlParams = new URLSearchParams(window.location.search);
+const linkHash = urlParams.get('linkHash');
+
+if (!linkHash) {
+    document.title = 'Error';
+    document.querySelector('h1').textContent =
+        'Error: linkHash parameter is missing.';
+} else if (!/^[a-f0-9]{40}$/i.test(linkHash)) {
+    document.title = 'Error';
+    document.querySelector('h1').textContent =
+        'Error: Invalid linkHash.';
+} else {
+    try {
+        const owner = location.hostname.split('.')[0];
+        const repo = location.pathname.split('/')[1];
+
+        const response = await fetch(
+            `https://raw.githubusercontent.com/${owner}/${repo}/{{ branch|e('js') }}/links/${encodeURIComponent(linkHash)}.txt`,
+            {
+                cache: 'no-store'
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        const url = (await response.text()).trim();
+
+        location.replace(url);
+    } catch (err) {
+        console.error(err);
+
+        document.title = 'Error';
+        document.querySelector('h1').textContent =
+            'Sorry, this link could not be found.';
+    }
+}
+</script>
+</body>
+</html>
