@@ -29,6 +29,7 @@ class CI extends AbstractCommand {
     }
 
     public function execute(Options $options): void {
+        StaticVars::$noCache = true; // CI command should never use cache, always build fresh.
         $this->cli = StaticVars::$cli;
         $args = $options->getArgs();
 
