@@ -58,10 +58,15 @@ abstract class AbstractCommand implements SingletonInterface {
     }
 
     protected function setStaticVarsFromOptions(Options $options): void {
-        $instance = $this->getInstanceFromOptions($options);
-        StaticVars::$instance = $instance;
-        $defaultStr = $instance->isDefault ? 'default ' : '';
-        $this->cli->info('-- Using '.$defaultStr.'instance "'.$instance->containerPrefix.'" --');
+        try {
+            $instance = $this->getInstanceFromOptions($options);
+                    StaticVars::$instance = $instance;
+            $defaultStr = $instance->isDefault ? 'default ' : '';
+            $this->cli->info('-- Using '.$defaultStr.'instance "'.$instance->containerPrefix.'" --');
+
+        } catch (Exception $e) {
+            $this->cli->error('Error resolving instance: ' . $e->getMessage());
+        }
 
         $recipe = $this->mainService->getRecipe(StaticVars::$instance->recipePath);
         StaticVars::$recipe = $recipe;

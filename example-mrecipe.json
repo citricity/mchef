@@ -25,5 +25,6 @@
     "fixeddataset": false,
     "filesizelimit": false,
     "additionalmodules": []
-  }
+  },
+  "developer": true
 }

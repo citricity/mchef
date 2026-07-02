@@ -35,7 +35,7 @@ class BlueprintConverter extends AbstractService {
      */
     public function convert(Recipe $recipe, ?string $snapshotUrl = null): array {
         $this->warnings = [];
-        $blueprint = [];
+        $blueprint = ['$schema' => './blueprint-schema.json'];
 
         $blueprint['preferredVersions'] = [
             'php'    => $recipe->phpVersion,
@@ -175,7 +175,12 @@ class BlueprintConverter extends AbstractService {
                 $this->warnings[] = "Plugin skipped (non-GitHub URL): $url";
                 continue;
             }
-            $steps[] = ['step' => 'installMoodlePlugin', 'url' => $zipUrl];
+            if (strpos($plugin->repo, 'theme_')) {
+                // TODO - actually inspect the repo to see if it's a theme or not.
+                $steps[] = ['step' => 'installTheme', 'url' => $zipUrl];
+            } else {
+                $steps[] = ['step' => 'installMoodlePlugin', 'url' => $zipUrl];
+            }
         }
         return $steps;
     }

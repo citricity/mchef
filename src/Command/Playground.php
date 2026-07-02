@@ -45,7 +45,18 @@ final class Playground extends AbstractCommand {
         }
 
         $args   = $options->getArgs();
+        $argRecipePath = $args[0] ?? null;
+        if ($argRecipePath !== null) {
+            // If path is relative, resolve it relative to the current working directory.
+            $recipePath = realpath($argRecipePath) ?: $argRecipePath;
+            if (!is_file($recipePath)) {
+                $this->cli->error('Recipe file not found: '.$recipePath);
+                return; 
+            }
+        }
+
         $source = $args[0] ?? $recipePath;
+
         $snapshot = $options->getOpt('snapshot');
         $recipe = Recipe::fromJSONFile($source);
         $playgroundLongUrl = $this->buildPlaygroundUrl($recipe);
@@ -63,6 +74,7 @@ final class Playground extends AbstractCommand {
 
         $this->cli->debug('Published redirect to: ' . $result['resourceUrl']);
         $this->cli->success('Playground short URL: ' . $result['shortUrl']);
+        
         // Note - intentinoally not using the cli->info() method here, as we want the QR code in white.
         echo("\n" . $this->qrCodeService->generateQrCode($result['shortUrl']) . "\n");
     }
@@ -70,12 +82,14 @@ final class Playground extends AbstractCommand {
     private function buildPlaygroundUrl(Recipe $recipe, ?string $snapshotUrl = null): string {
         $converter = BlueprintConverter::instance();
         $blueprint = $converter->convert($recipe, $snapshotUrl);
+
+        //dd(json_encode($blueprint, JSON_UNESCAPED_SLASHES));
         $globalConfig = $this->configuratorService->getMainConfig();
         $playgroundUrlsBase = $globalConfig->playgroundUrl ?? 'https://ateeducacion.github.io/moodle-playground';
-        return $playgroundUrlsBase . '/?blueprint=' . urlencode(json_encode($blueprint, JSON_UNESCAPED_SLASHES));
+        return $playgroundUrlsBase . '/?blueprint=' . base64_encode(json_encode($blueprint, JSON_UNESCAPED_SLASHES));
     }
 
-    private function advancedBuildTEMP_CODE(bool $snapshot, ?string $source, \splitbrain\phpcli\Options $options): string {
+    private function advancedBuildTEMP_CODE(?string $source, \splitbrain\phpcli\Options $options): void {
 
         if ($source !== null && is_file($source)) {
             $recipe = Recipe::fromJSONFile($source);

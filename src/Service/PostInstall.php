@@ -19,7 +19,10 @@ final class PostInstall extends AbstractService {
         if ($recipe->config->theme) {
             $this->cli->info('Setting up theme: '.$recipe->config->theme);
         }
-        $instanceName = StaticVars::$instance->containerPrefix;
+        $instanceName = StaticVars::$instance->containerPrefix ?? $recipe->containerPrefix ?? null;
+        if (empty($instanceName)) {
+            throw new \RuntimeException('Instance name is not set. Cannot set theme.');
+        }
         $containerName = $this->mainService->getDockerMoodleContainerName($instanceName);
         $cmd = 'docker exec -it '.$containerName.' php /var/www/html/moodle/admin/cli/cfg.php --name=theme --set='.$recipe->config->theme;
         $this->exec($cmd, 'Failed to set theme for '.$instanceName);
