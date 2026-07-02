@@ -369,7 +369,8 @@ class Plugins extends AbstractService {
                         $pluginPath = $this->getMoodlePluginPath($pluginName, $recipe);
                         
                         $targetPath = $this->getPluginTargetPath($recipe, $recipePath, $pluginName);
-                        if (!file_exists(OS::path($targetPath.'/version.php'))) {                                                  
+                        $targetPathVersionExists = file_exists(OS::path($targetPath.'/version.php'));
+                        if (!$targetPathVersionExists || StaticVars::$ciMode) {
                             $tmpDir = sys_get_temp_dir().'/'.uniqid('', true);
                             $this->gitService->cloneGitRepository($recipePlugin->repo, $recipePlugin->branch, $tmpDir, $recipePlugin->upstream, $shallowClone);
                 
