@@ -22,6 +22,10 @@ final class DockerComposeBuildCommandTest extends MchefTestCase {
                 $this->commands[] = $cmd;
                 return '';
             }
+
+            protected function execPassthru(string $cmd, ?string $errorMsg = null): void {
+                $this->commands[] = $cmd;
+            }
         };
 
         $configurator = $this->getMockBuilder(Configurator::class)
@@ -61,10 +65,14 @@ final class DockerComposeBuildCommandTest extends MchefTestCase {
 
             protected function exec(string $cmd, ?string $errorMsg = null, ?bool $silent = false): string {
                 $this->commands[] = $cmd;
+                return '';
+            }
+
+            protected function execPassthru(string $cmd, ?string $errorMsg = null): void {
+                $this->commands[] = $cmd;
                 if (str_contains($cmd, ' build')) {
                     throw new ExecFailed('build fails', 0, $cmd);
                 }
-                return '';
             }
         };
 
