@@ -6,6 +6,7 @@ use App\Exceptions\ExecFailed;
 use App\Model\DockerContainer;
 use App\Model\DockerData;
 use App\Model\DockerNetwork;
+use App\StaticVars;
 use App\Traits\ExecTrait;
 use splitbrain\phpcli\Exception;
 
@@ -501,9 +502,12 @@ class Docker extends AbstractService {
         $dockerBuildKit = $usesSsh ? 'DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 ' : '';
         $composeCmd = $this->getComposeCommand();
         $baseArgs = "--project-directory {$projectDirEscaped} -f {$composeFileEscaped} build";
+        if (StaticVars::$ciMode) {
+            $baseArgs .= ' --no-cache';
+        }
         $cmd = "{$dockerBuildKit}{$composeCmd} {$baseArgs}";
         $errorMsg = "Failed to build image with docker compose";
-        $this->exec($cmd, $errorMsg);
+        $this->execPassthru($cmd, $errorMsg);
         
         // Get the built image name from compose and tag it with our custom name
         // This is a bit tricky - we need to inspect what compose built and rename it
